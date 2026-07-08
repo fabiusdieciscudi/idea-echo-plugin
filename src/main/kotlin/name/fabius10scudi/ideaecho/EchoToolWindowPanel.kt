@@ -243,9 +243,12 @@ class EchoToolWindowPanel(private val project: Project) :
         for (r in rows) tableModel.addRow(arrayOf<Any>(r.display, r.count))
     }
 
-    /** Grouping key shared with the analyzer: stem + length. */
-    private fun groupKey(word: String) =
-        "${word.length}\u0000${RepetitionAnalyzer.stem(word)}"
+// Previous grouping key: stem + length (kept equal-length variants together).
+// private fun groupKey(word: String) =
+//     "${word.length}\u0000${RepetitionAnalyzer.stem(word)}"
+
+    // With Snowball, variants differ in length (portare/porta) -> group by stem only.
+    private fun groupKey(word: String) = RepetitionAnalyzer.stem(word)
 
     /** When the caret enters a highlighted word, trigger the same action as a table click. */
     private fun onCaretMoved() {

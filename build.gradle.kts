@@ -8,6 +8,7 @@ group = "name.fabius10scudi.ideaecho"
 version = "1.0.0"
 
 dependencies {
+    implementation("com.github.rholder:snowball-stemmer:1.3.0.581.1")
     intellijPlatform {
         create("IC", "2024.3")          // Community Edition
         // bundledPlugin("com.intellij.java")

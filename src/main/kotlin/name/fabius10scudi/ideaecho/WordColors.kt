@@ -36,8 +36,15 @@ object WordColors {
         return JBColor(light, dark)
     }
 
+// Previous: hash the word minus its final char.
+// private fun stemHash(word: String): Int {
+//     val stem = word.dropLast(1).lowercase()
+//     return CRC32().apply { update(stem.toByteArray(Charsets.UTF_8)) }.value.toInt()
+// }
+
+    // Base the color on the Snowball stem so all variants of a group share a color.
     private fun stemHash(word: String): Int {
-        val stem = word.dropLast(1).lowercase()
+        val stem = RepetitionAnalyzer.stem(word)
         return CRC32().apply { update(stem.toByteArray(Charsets.UTF_8)) }.value.toInt()
     }
 

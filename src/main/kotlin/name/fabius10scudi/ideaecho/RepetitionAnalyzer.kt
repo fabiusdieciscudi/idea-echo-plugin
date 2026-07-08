@@ -1,5 +1,8 @@
 package name.fabius10scudi.ideaecho
 
+import org.tartarus.snowball.ext.italianStemmer
+import java.util.concurrent.ConcurrentHashMap
+
 /** A detected echo: a word repeated within the look-back window. */
 data class Echo(
     val word: String,
@@ -28,6 +31,10 @@ object RepetitionAnalyzer {
     private val TOKEN_PATTERN = Regex("""(?U)\\[A-Za-z]+|\b\w+(?:-\w+)?\b""")
 
     private data class Occurrence(val word: String, val sentenceId: Int, val offset: Int)
+
+    // italianStemmer keeps mutable state -> one instance per thread.
+    private val stemmer = ThreadLocal.withInitial { italianStemmer() }
+    private val stemCache = ConcurrentHashMap<String, String>()
 
     fun analyze(text: String): List<Echo> {
         val masked = maskLatex(text) // same length as text, so offsets stay valid
@@ -87,21 +94,38 @@ object RepetitionAnalyzer {
         return echoes
     }
 
+// --- Previous rule: equal, or equal except the final vowel (same length) ---
+// private fun wordsMatch(w1: String, w2: String): Boolean {
+//     if (w1 == w2) return true
+//     if (w1.startsWith('\\') || w2.startsWith('\\')) return false
+//     if (w1.length != w2.length || w1.isEmpty()) return false
+//     return w1.last() in EchoConfig.VOWELS &&
+//         w2.last() in EchoConfig.VOWELS &&
+//         w1.dropLast(1) == w2.dropLast(1)
+// }
+
     private fun wordsMatch(w1: String, w2: String): Boolean {
         if (w1 == w2) return true
-        // Commands are literal: only an exact match counts.
-        if (w1.startsWith('\\') || w2.startsWith('\\')) return false
-        if (w1.length != w2.length || w1.isEmpty()) return false
-        return w1.last() in EchoConfig.VOWELS &&
-                w2.last() in EchoConfig.VOWELS &&
-                w1.dropLast(1) == w2.dropLast(1)
+        if (w1.startsWith('\\') || w2.startsWith('\\')) return false // commands: exact only
+        return stem(w1) == stem(w2)
     }
 
-    /** Grouping stem: the word without its final vowel (commands are not stripped). */
+// --- Previous stem: drop the final vowel ---
+// fun stem(word: String): String {
+//     if (word.startsWith('\\')) return word.lowercase()
+//     val w = word.lowercase()
+//     return if (w.isNotEmpty() && w.last() in EchoConfig.VOWELS) w.dropLast(1) else w
+// }
+
+    /** Snowball Italian stem; commands (\foo) stay literal and match only exactly. */
     fun stem(word: String): String {
-        if (word.startsWith('\\')) return word.lowercase()
-        val w = word.lowercase()
-        return if (w.isNotEmpty() && w.last() in EchoConfig.VOWELS) w.dropLast(1) else w
+        if (word.startsWith('\\')) return word
+        return stemCache.computeIfAbsent(word.lowercase()) { key ->
+            val s = stemmer.get()
+            s.setCurrent(key)
+            s.stem()
+            s.getCurrent()
+        }
     }
 
     /**
