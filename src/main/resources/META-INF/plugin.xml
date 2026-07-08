@@ -1,0 +1,37 @@
+<idea-plugin>
+    <!-- id / name / version sono gestiti da pluginConfiguration in build.gradle.kts -->
+    <vendor email="fabius.dieciscudi@protonmail.com"
+            url="https://github.com/fabiusdieciscudi/idea-echo-plugin">Fabius Dieciscudi</vendor>
+
+    <description><![CDATA[
+        <p>Evidenzia le ripetizioni nei file LaTeX (.tex): parole uguali, o uguali
+        a meno della vocale finale, con un colore calcolato dalla parola (CRC32).</p>
+        <p>Include un pannello con la tabella delle parole duplicate e un dizionario
+        di sinonimi/contrari (via endpoint REST).</p>
+    ]]></description>
+
+    <change-notes><![CDATA[<p>Versione iniziale.</p>]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <resource-bundle>messages.EchoBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="name.fabius10scudi.ideaecho.EchoPlugin"/>
+
+        <!-- With TeXiFy installed, .tex is the "Latex" language (case-sensitive!). -->
+        <annotator language="Latex"
+                   implementationClass="name.fabius10scudi.ideaecho.EchoAnnotator"/>
+
+        <!-- Without TeXiFy, .tex is plain text; also covers the runIde sandbox. -->
+        <annotator language="TEXT"
+                   implementationClass="name.fabius10scudi.ideaecho.EchoAnnotator"/>
+
+        <toolWindow factoryClass="name.fabius10scudi.ideaecho.EchoToolWindowFactory"
+                    id="Idea Echo"
+                    anchor="right"
+                    secondary="true"
+                    canCloseContents="false"/>
+    </extensions>
+</idea-plugin>
