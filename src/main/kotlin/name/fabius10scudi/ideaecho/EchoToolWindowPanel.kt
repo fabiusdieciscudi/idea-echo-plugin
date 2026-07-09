@@ -39,6 +39,7 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.text.Collator
 import java.util.Locale
+import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -242,9 +243,13 @@ class EchoToolWindowPanel(private val project: Project) :
         return JPanel().apply {
             layout = BoxLayout(this, BoxLayout.X_AXIS)
             add(toolbar.component)
-            add(JLabel("  Min:"))
+            add(Box.createHorizontalStrut(JBUI.scale(8)))
+            add(JLabel(EchoBundle.message("toolwindow.label.minLength")))
+            add(Box.createHorizontalStrut(JBUI.scale(4)))
             add(minLengthCombo)
-            add(JLabel("  Window:"))
+            add(Box.createHorizontalStrut(JBUI.scale(8)))
+            add(JLabel(EchoBundle.message("toolwindow.label.window")))
+            add(Box.createHorizontalStrut(JBUI.scale(4)))
             add(windowSpinner)
         }
     }
@@ -376,7 +381,7 @@ class EchoToolWindowPanel(private val project: Project) :
                 attrs,
                 HighlighterTargetArea.EXACT_RANGE,
             )
-            h.errorStripeTooltip = "Echo"
+            h.errorStripeTooltip = EchoBundle.message("editor.stripe.tooltip")
             activeHighlighters += h
         }
     }

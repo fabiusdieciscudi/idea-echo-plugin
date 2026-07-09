@@ -43,10 +43,10 @@ class EchoConfigurable(private val project: Project) : Configurable {
         )
     )
 
-    private val externalCheck = JBCheckBox("Store configuration in an external YAML file")
+    private val externalCheck = JBCheckBox(EchoBundle.message("settings.external.checkbox"))
     private val externalPathField = TextFieldWithBrowseButton()
-    private val exportButton = JButton("Write file from current values")
-    private val importButton = JButton("Import values from file")
+    private val exportButton = JButton(EchoBundle.message("settings.external.export"))
+    private val importButton = JButton(EchoBundle.message("settings.external.import"))
 
     private val commandsModel = DefaultListModel<String>()
     private val commandsList = JBList(commandsModel).apply {
@@ -54,7 +54,10 @@ class EchoConfigurable(private val project: Project) : Configurable {
         visibleRowCount = 6
     }
 
-    private val argumentModel = object : DefaultTableModel(arrayOf("Command", "Argument"), 0) {
+    private val argumentModel = object : DefaultTableModel(arrayOf(
+        EchoBundle.message("settings.table.command"),
+        EchoBundle.message("settings.table.argument"),
+    ), 0) {
         override fun getColumnClass(columnIndex: Int): Class<*> =
             if (columnIndex == 1) Integer::class.java else String::class.java
     }
@@ -70,12 +73,12 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
     private val settings get() = EchoSettings.getInstance(project)
 
-    override fun getDisplayName(): String = "Idea Echo"
+    override fun getDisplayName(): String = EchoBundle.message("settings.displayName")
 
     override fun createComponent(): JComponent {
         // The chooser is rooted at the project directory, so the user cannot browse outside it.
         val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor().apply {
-            title = "Select Idea Echo Configuration File"
+            title = EchoBundle.message("settings.external.chooserTitle")
             project.guessProjectDir()?.let { setRoots(it) }
         }
         externalPathField.addBrowseFolderListener(null, null, project, descriptor)
@@ -92,10 +95,10 @@ class EchoConfigurable(private val project: Project) : Configurable {
         }
 
         val commandsPanel = ToolbarDecorator.createDecorator(commandsList)
-            .setAddAction { askCommandName("Add ignored command", "")?.let { commandsModel.addElement(it) } }
+            .setAddAction { askCommandName(EchoBundle.message("settings.command.addTitle"), "")?.let { commandsModel.addElement(it) } }
             .setEditAction {
                 val i = commandsList.selectedIndex
-                if (i >= 0) askCommandName("Edit ignored command", commandsModel.get(i))
+                if (i >= 0) askCommandName(EchoBundle.message("settings.command.editTitle"), commandsModel.get(i))
                     ?.let { commandsModel.set(i, it) }
             }
             .setRemoveAction {
@@ -114,14 +117,14 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
         return FormBuilder.createFormBuilder()
             .addComponent(externalCheck)
-            .addLabeledComponent("Configuration file:", externalPathField)
+            .addLabeledComponent(EchoBundle.message("settings.external.file"), externalPathField)
             .addComponent(externalRow)
             .addSeparator()
-            .addLabeledComponent("Minimum word length:", minLengthCombo)
-            .addLabeledComponent("Look-back window (words):", windowSpinner)
-            .addLabeledComponentFillVertically("Ignored LaTeX commands (with content):", commandsPanel)
-            .addLabeledComponentFillVertically("Text argument (command -> 1-based index):", argumentPanel)
-            .addLabeledComponentFillVertically("Ignored words \u2014 one regex per line:", JBScrollPane(wordsArea))
+            .addLabeledComponent(EchoBundle.message("settings.minWordLength"), minLengthCombo)
+            .addLabeledComponent(EchoBundle.message("settings.windowSize"), windowSpinner)
+            .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredCommands"), commandsPanel)
+            .addLabeledComponentFillVertically(EchoBundle.message("settings.textArgument"), argumentPanel)
+            .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredWords"), JBScrollPane(wordsArea))
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -138,15 +141,19 @@ class EchoConfigurable(private val project: Project) : Configurable {
     private fun validatedPath(showErrors: Boolean = true): java.nio.file.Path? {
         val raw = externalPathField.text.trim()
         if (raw.isEmpty()) {
-            if (showErrors) Messages.showErrorDialog(project, "No configuration file selected.", "Idea Echo")
+            if (showErrors) Messages.showErrorDialog(
+                project,
+                EchoBundle.message("message.noFileSelected"),
+                EchoBundle.message("settings.displayName"),
+            )
             return null
         }
         val path = Paths.get(raw).toAbsolutePath().normalize()
         if (!settings.isInsideProject(path)) {
             if (showErrors) Messages.showErrorDialog(
                 project,
-                "The configuration file must be inside the project directory.",
-                "Idea Echo",
+                EchoBundle.message("message.fileOutsideProject"),
+                EchoBundle.message("settings.displayName"),
             )
             return null
         }
@@ -158,9 +165,17 @@ class EchoConfigurable(private val project: Project) : Configurable {
         val path = validatedPath() ?: return
         argumentTable.cellEditor?.stopCellEditing()
         if (EchoExternalConfig.save(path, formData())) {
-            Messages.showInfoMessage(project, "Configuration written to $path", "Idea Echo")
+            Messages.showInfoMessage(
+                project,
+                EchoBundle.message("message.written", path),
+                EchoBundle.message("settings.displayName"),
+            )
         } else {
-            Messages.showErrorDialog(project, "Cannot write $path", "Idea Echo")
+            Messages.showErrorDialog(
+                project,
+                EchoBundle.message("message.cannotWrite", path),
+                EchoBundle.message("settings.displayName"),
+            )
         }
     }
 
@@ -169,7 +184,11 @@ class EchoConfigurable(private val project: Project) : Configurable {
         val path = validatedPath() ?: return
         val data = EchoExternalConfig.load(path)
         if (data == null) {
-            Messages.showErrorDialog(project, "Cannot read $path", "Idea Echo")
+            Messages.showErrorDialog(
+                project,
+                EchoBundle.message("message.cannotRead", path),
+                EchoBundle.message("settings.displayName"),
+            )
             return
         }
         fillForm(data)
@@ -188,10 +207,10 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
         if (nowExternal) {
             val path = validatedPath(showErrors = false)
-                ?: throw ConfigurationException("The configuration file must be inside the project directory.")
+                ?: throw ConfigurationException(EchoBundle.message("message.fileOutsideProject"))
             // Enabling the external file: create it from the current values when missing.
             if (!path.toFile().isFile && !EchoExternalConfig.save(path, formData())) {
-                throw ConfigurationException("Cannot create $path")
+                throw ConfigurationException(EchoBundle.message("message.cannotCreate", path))
             }
             settings.externalConfigPath = path.toString()
             settings.useExternalConfig = true
@@ -241,7 +260,9 @@ class EchoConfigurable(private val project: Project) : Configurable {
     )
 
     private fun askCommandName(title: String, initial: String): String? =
-        Messages.showInputDialog(project, "Command name (no backslash):", title, null, initial, null)
+        Messages.showInputDialog(
+            project, EchoBundle.message("settings.command.prompt"), title, null, initial, null
+        )
             ?.trim()?.takeIf { it.isNotEmpty() }
 
     private fun currentCommands(): List<String> =
