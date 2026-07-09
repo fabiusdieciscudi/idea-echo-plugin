@@ -31,18 +31,133 @@ object EchoConfig {
 
     /** Common Italian function words to ignore. */
     val IGNORED: Set<String> = """
-        essere avere della delle dello degli nella nelle nello nell negli sulla sulle
-        sullo sugli sull dalla dalle dallo dall dagli quella quelle quello quelli questa
-        queste questo questi come dove quando mentre perché anche ancora
-        aveva avevano avevo erano fosse fossero sarebbe sarebbero stato stata
-        stati state veniva vennero venne verrebbe prima dopo senza sotto sopra
-        verso contro tutto tutta tutti tutte molto molta molti molte poco poca
-        pochi poche sempre spesso ormai forse quasi appena finché quindi
-        pero però infatti dunque comunque tuttavia eppure invece proprio propria
-        allo alle propri proprie altro altra altri altre ogni qualche stesso stessa
-        stessi stesse loro nostro nostra nostri nostre vostro vostra vostri vostre
-        poteva potevano potrebbe possono dovere doveva dovevano dovrebbe
-        qualcosa qualcuno nessuno niente nulla dell della alla quel
-
+alla
+alle
+allo
+altra
+altre
+altri
+altro
+anche
+ancora
+appena
+avere
+aveva
+avevano
+avevo
+come
+comunque
+contro
+dagli
+dall
+dalla
+dalle
+dallo
+degli
+dell
+della
+delle
+dello
+dopo
+dove
+dovere
+doveva
+dovevano
+dovrebbe
+dunque
+eppure
+erano
+essere
+finché
+forse
+fosse
+fossero
+infatti
+invece
+loro
+mentre
+molta
+molte
+molti
+molto
+negli
+nell
+nella
+nelle
+nello
+nessuno
+niente
+nostra
+nostre
+nostri
+nostro
+nulla
+ogni
+ormai
+perché
+pero
+però
+poca
+poche
+pochi
+poco
+possono
+poteva
+potevano
+potrebbe
+prima
+propri
+propria
+proprie
+proprio
+qualche
+qualcosa
+qualcuno
+quando
+quasi
+quel
+quella
+quelle
+quelli
+quello
+questa
+queste
+questi
+questo
+quindi
+sarebbe
+sarebbero
+sempre
+senza
+sopra
+sotto
+spesso
+stata
+state
+stati
+stato
+stessa
+stesse
+stessi
+stesso
+sugli
+sull
+sulla
+sulle
+sullo
+tutta
+tuttavia
+tutte
+tutti
+tutto
+veniva
+venne
+vennero
+verrebbe
+verso
+vostra
+vostre
+vostri
+vostro
     """.trimIndent().split(Regex("\\s+")).filter { it.isNotEmpty() }.toSet()
 }
