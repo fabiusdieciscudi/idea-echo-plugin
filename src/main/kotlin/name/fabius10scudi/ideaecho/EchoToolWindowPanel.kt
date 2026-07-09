@@ -23,6 +23,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.wm.ToolWindowManager
@@ -230,6 +231,17 @@ class EchoToolWindowPanel(private val project: Project) :
                     // Full reset: clears the current marking, re-reads the (possibly external)
                     // settings, re-analyzes, and restarts the daemon so the annotator repaints.
                     resetAll()
+                }
+            })
+            add(object : AnAction(
+                EchoBundle.message("toolwindow.action.settings"),
+                null,
+                AllIcons.General.Settings,
+            ) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    // Applying the dialog fires EchoSettingsNotifier, which resets this panel.
+                    ShowSettingsUtil.getInstance()
+                        .showSettingsDialog(project, EchoConfigurable::class.java)
                 }
             })
         }
