@@ -1,16 +1,11 @@
 <idea-plugin>
-    <!-- id / name / version sono gestiti da pluginConfiguration in build.gradle.kts -->
     <vendor email="fabius.dieciscudi@protonmail.com"
             url="https://github.com/fabiusdieciscudi/idea-echo-plugin">Fabius Dieciscudi</vendor>
 
     <description><![CDATA[
-        <p>Evidenzia le ripetizioni nei file LaTeX (.tex): parole uguali, o uguali
-        a meno della vocale finale, con un colore calcolato dalla parola (CRC32).</p>
-        <p>Include un pannello con la tabella delle parole duplicate e un dizionario
-        di sinonimi/contrari (via endpoint REST).</p>
     ]]></description>
 
-    <change-notes><![CDATA[<p>Versione iniziale.</p>]]></change-notes>
+    <change-notes><![CDATA[<p>Initial version.</p>]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.lang</depends>
