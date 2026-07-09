@@ -108,11 +108,11 @@ Open it from the right edge of the IDE, or via `View → Tool Windows → Idea E
 
 ### Toolbar
 
-| Control | Meaning |
-| --- | --- |
-| **Update** | Full reset: clears the current marking, re-reads the settings (including the external YAML file, if enabled), re-analyzes the document, and repaints the editor. |
-| **Min** | Minimum word length, 2 to 4. |
-| **Window** | Look-back window in words, 20 to 500 in steps of 20. |
+| Control    | Meaning                                                                                                                                                                |
+|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Update** | Full reset: clears the current marking, re-reads the settings (including the external YAML file, if enabled), re-analyzes the document, and repaints the editor.       |
+| **Min**    | Minimum word length, 2 to 4.                                                                                                                                           |
+| **Window** | Look-back window in words, 20 to 500 in steps of 20.                                                                                                                   |
 
 Changing `Min` or `Window` persists the value and resets everything immediately.
 
@@ -122,12 +122,12 @@ One row per word group, with all its variants joined alphabetically
 (`stella/stelle`). The word is painted in the same stable colour used in the
 editor.
 
-| Column | Meaning |
-| --- | --- |
-| **Word** | The variants sharing one stem. |
-| **#** | Total occurrences marked as echoes across all variants. |
-| **∂w** | Minimum distance, in accepted words, between two occurrences. |
-| **∂s** | Minimum distance in sentences. `0` means two occurrences share a sentence. |
+| Column    | Meaning                                                                    |
+|-----------|----------------------------------------------------------------------------|
+| **Word**  | The variants sharing one stem.                                             |
+| **#**     | Total occurrences marked as echoes across all variants.                    |
+| **∂w**    | Minimum distance, in accepted words, between two occurrences.              |
+| **∂s**    | Minimum distance in sentences. `0` means two occurrences share a sentence. |
 
 The two minima are computed independently, so they may come from different pairs
 of occurrences.
@@ -241,15 +241,7 @@ are blanked, never moved, so every highlight lands on the right offset.
 literal percent sign and is left alone.
 
 **Ignored commands** disappear with all their arguments, whether they use braces or
-brackets. This handles both `\beat{...}` and the multi-line bracket form:
-
-```latex
-\scene[
-    name={\Geraldine fa colazione sotto il patio},
-    setting={\settingMevouillonFattoriaPatio},
-    time={mattina}
-]%
-```
+brackets.
 
 **Commands with arguments** are unwrapped to the argument that holds the prose —
 the first one by default, or the one declared in the settings table. The content is
@@ -290,14 +282,6 @@ or a plugin version in `build.gradle.kts`.
 
 - Stemming groups words by root, which is the point, but it also merges unrelated
   homographs that share a stem. This is a deliberate trade-off.
-- Multi-argument commands keep only one argument; the others are dropped, even when
-  they contain prose.
-- An `ignoredWords` entry that begins with `[` must be quoted if you write the YAML
-  file by hand, otherwise YAML reads it as a list.
-- The bundle passes values through `MessageFormat`, so the default lists in
-  `EchoBundle.properties` cannot contain `{`, `}`, `'` or `\`. Regexes needing a
-  backslash must go in the settings text area instead.
-- The thesaurus panel uses JCEF and executes JavaScript, as the dictionary sites
-  require it.
+- Multi-argument commands keep only one argument; the others are dropped.
 - The analyzer re-scans the whole file on every run. This is fine for normal
   chapters; very large single files may feel sluggish while typing.
