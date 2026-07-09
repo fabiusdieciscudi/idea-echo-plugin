@@ -3,8 +3,8 @@ package name.fabius10scudi.ideaecho
 /** Tunable parameters. */
 object EchoConfig {
 
-    /** Vowels (accented included) for the "except final vowel" match. */
-    const val VOWELS = "aeiouàèéìíòóùú"
+//    /** Vowels (accented included) for the "except final vowel" match. */
+//    const val VOWELS = "aeiouàèéìíòóùú"
 
     /** REST endpoint of the synonyms/antonyms dictionary. %s = URL-encoded word. */
 //    const val THESAURUS_URL_TEMPLATE = "https://sapere.virgilio.it/parole/sinonimi-e-contrari/%s"
