@@ -15,6 +15,7 @@ object EchoConfig {
     val THESAURUS_SERVERS: List<ThesaurusServer> = listOf(
         ThesaurusServer("Reverso", "https://synonyms.reverso.net/sinonimi/it/%s"),
         ThesaurusServer("Virgilio (it)", "https://sapere.virgilio.it/parole/sinonimi-e-contrari/%s"),
+        ThesaurusServer("Ogma (it)", "https://ogma.lazza.dk/cerca/?q=%s"),
     )
 
     /** LaTeX commands whose argument (and the command itself) must be fully ignored. */
