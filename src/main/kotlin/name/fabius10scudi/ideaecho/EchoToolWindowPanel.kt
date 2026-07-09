@@ -104,6 +104,9 @@ class EchoToolWindowPanel(private val project: Project) :
     private val thesaurusCombo = ComboBox(EchoConfig.THESAURUS_SERVERS.toTypedArray())
     private var syncingControls = false
 
+    /** True while the table selection is being driven by the caret, not by the user. */
+    private var syncingSelection = false
+
     private val thesaurus = ThesaurusView(this)
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val collator = Collator.getInstance(Locale.ITALIAN)
@@ -155,7 +158,7 @@ class EchoToolWindowPanel(private val project: Project) :
 
         // Single click: load synonyms for the first variant + underline occurrences.
         table.selectionModel.addListSelectionListener { e ->
-            if (!e.valueIsAdjusting) {
+            if (!e.valueIsAdjusting && !syncingSelection) {
                 selectedRow()?.let { row ->
                     showThesaurus(row.searchWord)
                     highlightOccurrences(row.ranges)
@@ -371,6 +374,22 @@ class EchoToolWindowPanel(private val project: Project) :
         key?.let { rowByKey[it] }?.let { row ->
             showThesaurus(row.searchWord)
             highlightOccurrences(row.ranges)
+            selectRowInTable(row)
+        }
+    }
+
+    /** Selects [row] in the table and scrolls it into view, without re-triggering the listener. */
+    private fun selectRowInTable(row: EchoRow) {
+        val modelIndex = rows.indexOf(row)
+        if (modelIndex < 0) return
+        val viewIndex = table.convertRowIndexToView(modelIndex)
+        if (viewIndex < 0 || viewIndex == table.selectedRow) return
+        syncingSelection = true
+        try {
+            table.setRowSelectionInterval(viewIndex, viewIndex)
+            table.scrollRectToVisible(table.getCellRect(viewIndex, 0, true))
+        } finally {
+            syncingSelection = false
         }
     }
 
