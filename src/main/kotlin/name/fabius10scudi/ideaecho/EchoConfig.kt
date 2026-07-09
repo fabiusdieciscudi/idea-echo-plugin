@@ -31,9 +31,7 @@ object EchoConfig {
      * Maps a command name to the 1-based index of the argument holding the prose.
      * Commands not listed here default to the first argument.
      */
-    val DEFAULT_TEXT_ARGUMENT: Map<String, Int> = mapOf(
-        "chapterwithsummary" to 3,
-    )
+    val DEFAULT_TEXT_ARGUMENT: Map<String, Int> = mapOf()
 
     /**
      * Function words to ignore. Each entry is a regular expression matched against
