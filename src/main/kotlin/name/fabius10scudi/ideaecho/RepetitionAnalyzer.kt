@@ -13,14 +13,37 @@ data class Echo(
     val sentenceId: Int,       // sentence number, 0-based
 )
 
-/** Immutable snapshot of the user-configurable analysis parameters. */
+/**
+ * Immutable snapshot of the user-configurable analysis parameters.
+ *
+ * [ignoredWords] entries are regular expressions matched against the whole word.
+ * Entries without regex metacharacters are kept in a fast literal set; the rest
+ * are compiled once. Invalid patterns are skipped rather than breaking analysis.
+ */
 data class AnalyzerParams(
     val minWordLength: Int,
     val windowSize: Int,
     val ignoredWords: Set<String>,
     val ignoredCommands: Set<String>,
     val textArgument: Map<String, Int>,
-)
+) {
+    private val ignoredLiterals: Set<String> =
+        ignoredWords.filterNot { it.hasRegexMeta() }.map { it.lowercase() }.toSet()
+
+    private val ignoredPatterns: List<Regex> =
+        ignoredWords.filter { it.hasRegexMeta() }.mapNotNull {
+            runCatching { Regex(it, RegexOption.IGNORE_CASE) }.getOrNull()
+        }
+
+    /** True when [word] (already lower-cased) must be excluded from the analysis. */
+    fun isIgnored(word: String): Boolean =
+        word in ignoredLiterals || ignoredPatterns.any { it.matches(word) }
+
+    private companion object {
+        private val REGEX_META: Set<Char> = "\\[]{}()*+?.^\$|".toSet()
+        private fun String.hasRegexMeta(): Boolean = any { it in REGEX_META }
+    }
+}
 
 private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
@@ -73,7 +96,7 @@ object RepetitionAnalyzer {
                 val word = if (isCommand) raw else raw.lowercase()
 
                 if (!isCommand &&
-                    (word.length < params.minWordLength || word in params.ignoredWords)
+                    (word.length < params.minWordLength || params.isIgnored(word))
                 ) continue
 
                 val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first, wordCounter)

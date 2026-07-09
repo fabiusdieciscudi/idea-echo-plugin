@@ -95,7 +95,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addLabeledComponent("Look-back window (words):", windowSpinner)
             .addLabeledComponentFillVertically("Ignored LaTeX commands (with content):", commandsPanel)
             .addLabeledComponentFillVertically("Text argument (command -> 1-based index):", argumentPanel)
-            .addLabeledComponentFillVertically("Ignored words (one per line):", JBScrollPane(wordsArea))
+            .addLabeledComponentFillVertically("Ignored words \u2014 one regex per line:", JBScrollPane(wordsArea))
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -154,5 +154,5 @@ class EchoConfigurable(private val project: Project) : Configurable {
     }
 
     private fun currentWords(): List<String> =
-        wordsArea.text.split(Regex("\\s+")).map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        wordsArea.text.split(Regex("\\s+")).map { it.trim() }.filter { it.isNotEmpty() }
 }

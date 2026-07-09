@@ -55,10 +55,10 @@ class EchoSettings : PersistentStateComponent<EchoSettings.State> {
         get() = state.textArgument
         set(value) { state.textArgument = value.toMutableMap() }
 
-    /** Function words excluded from the analysis. */
+    /** Function words excluded from the analysis; each entry is a regex. */
     var ignoredWords: List<String>
         get() = state.ignoredWords
-        set(value) { state.ignoredWords = value.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toMutableList() }
+        set(value) { state.ignoredWords = value.map { it.trim() }.filter { it.isNotEmpty() }.toMutableList() }
 
     /** Snapshot passed to the analyzer, so it never touches the settings service. */
     fun toParams(): AnalyzerParams = AnalyzerParams(
