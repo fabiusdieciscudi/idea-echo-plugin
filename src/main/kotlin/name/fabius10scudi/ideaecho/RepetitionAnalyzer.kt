@@ -49,8 +49,9 @@ object RepetitionAnalyzer {
         val window = ArrayDeque<Occurrence>()
         val seen = HashSet<Occurrence>()
         val marksBySentence = HashMap<Int, MutableList<Occurrence>>()
-
         var sentenceId = 0
+        var wordCounter = 0   // counts only accepted words, like the sliding window does
+
         for (sentenceMatch in SENTENCE_PATTERN.findAll(masked)) {
             val sentenceStart = sentenceMatch.range.first
             // Apostrophes -> spaces so "l'aereo" splits into "l" + "aereo".
@@ -66,7 +67,6 @@ object RepetitionAnalyzer {
                     (word.length < minWordLength || word in EchoConfig.IGNORED)
                 ) continue
 
-                var wordCounter = 0   // counts only accepted words, like the sliding window does
                 val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first, wordCounter)
                 wordCounter++
 
