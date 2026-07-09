@@ -18,9 +18,13 @@ object EchoConfig {
         ThesaurusServer("Ogma (it)", "https://ogma.lazza.dk/cerca/?q=%s"),
     )
 
-    /** LaTeX commands whose argument (and the command itself) must be fully ignored. */
-    val DEFAULT_IGNORED_COMMANDS: List<String> =
-        listOf("comment", "note", "scene", "beat", "ellipsis", "temporaljump")
+    /**
+     * LaTeX commands whose argument (and the command itself) must be fully ignored.
+     * Defined in messages/EchoBundle.properties (language specific).
+     */
+    val DEFAULT_IGNORED_COMMANDS: List<String> by lazy {
+        EchoBundle.list("echo.default.ignoredCommands")
+    }
 
     /**
      * Commands whose real text is NOT the first argument.
@@ -35,92 +39,9 @@ object EchoConfig {
      * Function words to ignore. Each entry is a regular expression matched against
      * the whole (lower-cased) word, so a plain word like "dopo" works as-is while
      * "quell[aeio]" collapses quella/quelle/quelli/quello into one entry.
+     * Defined in messages/EchoBundle.properties (language specific).
      */
-    val DEFAULT_IGNORED: List<String> = """
-all[aeo]
-altr[aeio]
-anche
-ancora
-appena
-avere
-avev[ao]
-avevano
-come
-comunque
-contro
-dagli
-dall
-dall[aeo]
-degli
-dell
-dell[aeo]
-dopo
-dove
-dovere
-doveva
-dovevano
-dovrebbe
-dunque
-eppure
-erano
-essere
-finché
-forse
-fosse
-fossero
-infatti
-invece
-loro
-mentre
-molt[aeio]
-negli
-nell
-nell[aeo]
-nessuno
-niente
-nostr[aeio]
-nulla
-ogni
-ormai
-perché
-per[oò]
-poc[ao]
-poch[ei]
-possono
-poteva
-potevano
-potrebbe
-prima
-propri
-propri[aeo]
-qualche
-qualcosa
-qualcuno
-quando
-quasi
-quel
-quell[aeio]
-quest[aeio]
-quindi
-sarebbe
-sarebbero
-sempre
-senza
-sopra
-sotto
-spesso
-stat[aeio]
-stess[aeio]
-sugli
-sull
-sull[aeo]
-tutt[aeio]
-tuttavia
-veniva
-venne
-vennero
-verrebbe
-verso
-vostr[aeio]
-    """.trimIndent().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val DEFAULT_IGNORED: List<String> by lazy {
+        EchoBundle.list("echo.default.ignoredWords")
+    }
 }

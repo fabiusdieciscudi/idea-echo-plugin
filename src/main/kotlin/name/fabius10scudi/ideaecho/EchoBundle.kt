@@ -11,4 +11,8 @@ object EchoBundle : DynamicBundle("messages.EchoBundle") {
     fun message(@PropertyKey(resourceBundle = "messages.EchoBundle") key: String, vararg params: Any): String {
         return getMessage(key, *params)
     }
+
+    /** Reads a whitespace-separated list value (used for the analyzer defaults). */
+    fun list(@PropertyKey(resourceBundle = "messages.EchoBundle") key: String): List<String> =
+        message(key).split(Regex("\\s+")).filter { it.isNotEmpty() }
 }
