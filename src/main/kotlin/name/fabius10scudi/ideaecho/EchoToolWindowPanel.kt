@@ -226,9 +226,9 @@ class EchoToolWindowPanel(private val project: Project) :
                 AllIcons.Actions.Refresh,
             ) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    clearHighlights()   // Refresh also clears the current word marking
-                    lastCaretKey = null
-                    refresh()
+                    // Full reset: clears the current marking, re-reads the (possibly external)
+                    // settings, re-analyzes, and restarts the daemon so the annotator repaints.
+                    resetAll()
                 }
             })
         }
