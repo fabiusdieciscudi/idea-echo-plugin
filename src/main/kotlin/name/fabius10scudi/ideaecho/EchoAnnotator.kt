@@ -29,7 +29,7 @@ class EchoAnnotator : Annotator {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                 .range(TextRange(echo.startOffset, echo.endOffset))
                 .enforcedTextAttributes(attrs)
-                .tooltip("Echo: ${echo.word}")
+                .tooltip(EchoBundle.message("annotator.echo.tooltip", echo.word))
                 .create()
         }
     }
