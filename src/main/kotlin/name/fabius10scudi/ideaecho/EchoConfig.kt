@@ -1,6 +1,6 @@
 package name.fabius10scudi.ideaecho
 
-/** Tunable parameters. */
+/** Built-in defaults. User overrides live in EchoSettings (per project). */
 object EchoConfig {
 
 //    /** Vowels (accented included) for the "except final vowel" match. */
@@ -18,147 +18,30 @@ object EchoConfig {
         ThesaurusServer("Ogma (it)", "https://ogma.lazza.dk/cerca/?q=%s"),
     )
 
-    /** LaTeX commands whose argument (and the command itself) must be fully ignored. */
-    val IGNORED_COMMANDS: Set<String> = setOf("comment", "note", "scene", "beat", "ellipsis", "temporaljump") // command names, no backslash
+    /**
+     * LaTeX commands whose argument (and the command itself) must be fully ignored.
+     * Defined in messages/EchoBundle.properties (language specific).
+     */
+    val DEFAULT_IGNORED_COMMANDS: List<String> by lazy {
+        EchoBundle.list("echo.default.ignoredCommands")
+    }
 
     /**
      * Commands whose real text is NOT the first argument.
      * Maps a command name to the 1-based index of the argument holding the prose.
      * Commands not listed here default to the first argument.
      */
-    val TEXT_ARGUMENT: Map<String, Int> = mapOf(
+    val DEFAULT_TEXT_ARGUMENT: Map<String, Int> = mapOf(
         "chapterwithsummary" to 3,
     )
 
-    /** Common Italian function words to ignore. */
-    val IGNORED: Set<String> = """
-alla
-alle
-allo
-altra
-altre
-altri
-altro
-anche
-ancora
-appena
-avere
-aveva
-avevano
-avevo
-come
-comunque
-contro
-dagli
-dall
-dalla
-dalle
-dallo
-degli
-dell
-della
-delle
-dello
-dopo
-dove
-dovere
-doveva
-dovevano
-dovrebbe
-dunque
-eppure
-erano
-essere
-finché
-forse
-fosse
-fossero
-infatti
-invece
-loro
-mentre
-molta
-molte
-molti
-molto
-negli
-nell
-nella
-nelle
-nello
-nessuno
-niente
-nostra
-nostre
-nostri
-nostro
-nulla
-ogni
-ormai
-perché
-pero
-però
-poca
-poche
-pochi
-poco
-possono
-poteva
-potevano
-potrebbe
-prima
-propri
-propria
-proprie
-proprio
-qualche
-qualcosa
-qualcuno
-quando
-quasi
-quel
-quella
-quelle
-quelli
-quello
-questa
-queste
-questi
-questo
-quindi
-sarebbe
-sarebbero
-sempre
-senza
-sopra
-sotto
-spesso
-stata
-state
-stati
-stato
-stessa
-stesse
-stessi
-stesso
-sugli
-sull
-sulla
-sulle
-sullo
-tutta
-tuttavia
-tutte
-tutti
-tutto
-veniva
-venne
-vennero
-verrebbe
-verso
-vostra
-vostre
-vostri
-vostro
-    """.trimIndent().split(Regex("\\s+")).filter { it.isNotEmpty() }.toSet()
+    /**
+     * Function words to ignore. Each entry is a regular expression matched against
+     * the whole (lower-cased) word, so a plain word like "dopo" works as-is while
+     * "quell[aeio]" collapses quella/quelle/quelli/quello into one entry.
+     * Defined in messages/EchoBundle.properties (language specific).
+     */
+    val DEFAULT_IGNORED: List<String> by lazy {
+        EchoBundle.list("echo.default.ignoredWords")
+    }
 }
