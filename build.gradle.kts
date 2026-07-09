@@ -9,6 +9,8 @@ version = "1.0.0"
 
 dependencies {
     implementation("com.github.rholder:snowball-stemmer:1.3.0.581.1")
+    // SnakeYAML ships with the IntelliJ platform: compile against it, do not bundle it.
+    compileOnly("org.yaml:snakeyaml:2.2")
     intellijPlatform {
         create("IC", "2024.3")          // Community Edition
         // bundledPlugin("com.intellij.java")
