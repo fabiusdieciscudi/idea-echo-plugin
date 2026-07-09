@@ -333,7 +333,7 @@ class EchoToolWindowPanel(private val project: Project) :
         val markup = editor.markupModel
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
-            effectType = EffectType.LINE_UNDERSCORE
+            effectType = EffectType.ROUNDED_BOX // BOLD_LINE_UNDERSCORE
             effectColor = JBColor.RED
             errorStripeColor = JBColor.RED   // marker on the right-hand stripe
         }
