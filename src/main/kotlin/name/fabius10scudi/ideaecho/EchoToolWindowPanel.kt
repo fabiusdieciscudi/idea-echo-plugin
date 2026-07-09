@@ -36,6 +36,7 @@ import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.text.Collator
@@ -380,7 +381,8 @@ class EchoToolWindowPanel(private val project: Project) :
         val markup = editor.markupModel
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
-            effectType = EffectType.LINE_UNDERSCORE
+            fontType = Font.BOLD
+            effectType = EffectType.BOLD_LINE_UNDERSCORE
             effectColor = JBColor.RED
             errorStripeColor = JBColor.RED   // marker on the right-hand stripe
         }
