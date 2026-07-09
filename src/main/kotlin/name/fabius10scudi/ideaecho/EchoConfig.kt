@@ -1,6 +1,6 @@
 package name.fabius10scudi.ideaecho
 
-/** Tunable parameters. */
+/** Built-in defaults. User overrides live in EchoSettings (per project). */
 object EchoConfig {
 
 //    /** Vowels (accented included) for the "except final vowel" match. */
@@ -19,19 +19,20 @@ object EchoConfig {
     )
 
     /** LaTeX commands whose argument (and the command itself) must be fully ignored. */
-    val IGNORED_COMMANDS: Set<String> = setOf("comment", "note", "scene", "beat", "ellipsis", "temporaljump") // command names, no backslash
+    val DEFAULT_IGNORED_COMMANDS: List<String> =
+        listOf("comment", "note", "scene", "beat", "ellipsis", "temporaljump")
 
     /**
      * Commands whose real text is NOT the first argument.
      * Maps a command name to the 1-based index of the argument holding the prose.
      * Commands not listed here default to the first argument.
      */
-    val TEXT_ARGUMENT: Map<String, Int> = mapOf(
+    val DEFAULT_TEXT_ARGUMENT: Map<String, Int> = mapOf(
         "chapterwithsummary" to 3,
     )
 
     /** Common Italian function words to ignore. */
-    val IGNORED: Set<String> = """
+    val DEFAULT_IGNORED: List<String> = """
 alla
 alle
 allo
@@ -160,5 +161,5 @@ vostra
 vostre
 vostri
 vostro
-    """.trimIndent().split(Regex("\\s+")).filter { it.isNotEmpty() }.toSet()
+    """.trimIndent().split(Regex("\\s+")).filter { it.isNotEmpty() }
 }

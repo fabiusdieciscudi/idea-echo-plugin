@@ -13,6 +13,15 @@ data class Echo(
     val sentenceId: Int,       // sentence number, 0-based
 )
 
+/** Immutable snapshot of the user-configurable analysis parameters. */
+data class AnalyzerParams(
+    val minWordLength: Int,
+    val windowSize: Int,
+    val ignoredWords: Set<String>,
+    val ignoredCommands: Set<String>,
+    val textArgument: Map<String, Int>,
+)
+
 private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
 /**
@@ -43,8 +52,8 @@ object RepetitionAnalyzer {
     private val stemmer = ThreadLocal.withInitial { italianStemmer() }
     private val stemCache = ConcurrentHashMap<String, String>()
 
-    fun analyze(text: String, minWordLength: Int, windowSize: Int): List<Echo> {
-        val masked = maskLatex(text) // same length as text, so offsets stay valid
+    fun analyze(text: String, params: AnalyzerParams): List<Echo> {
+        val masked = maskLatex(text, params) // same length as text, so offsets stay valid
 
         val window = ArrayDeque<Occurrence>()
         val seen = HashSet<Occurrence>()
@@ -64,7 +73,7 @@ object RepetitionAnalyzer {
                 val word = if (isCommand) raw else raw.lowercase()
 
                 if (!isCommand &&
-                    (word.length < minWordLength || word in EchoConfig.IGNORED)
+                    (word.length < params.minWordLength || word in params.ignoredWords)
                 ) continue
 
                 val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first, wordCounter)
@@ -81,7 +90,7 @@ object RepetitionAnalyzer {
                 }
 
                 window.addLast(current)
-                if (window.size > windowSize) window.removeFirst()
+                if (window.size > params.windowSize) window.removeFirst()
             }
             sentenceId++
         }
@@ -147,7 +156,7 @@ object RepetitionAnalyzer {
      *    (and scanned recursively for nested commands);
      *  - commands without an argument: left literal (e.g. \Jacques).
      */
-    private fun maskLatex(text: String): String {
+    private fun maskLatex(text: String, params: AnalyzerParams): String {
         val out = text.toCharArray()
 
         fun blank(from: Int, to: Int) {
@@ -222,8 +231,8 @@ object RepetitionAnalyzer {
                     blank(i, j)                                  // blank '\name'
                     for (opt in optionSpans) blank(opt[0], opt[1] + 1)   // drop all [..]
 
-                    val target = EchoConfig.TEXT_ARGUMENT[name] ?: 1
-                    val ignored = name in EchoConfig.IGNORED_COMMANDS
+                    val target = params.textArgument[name] ?: 1
+                    val ignored = name in params.ignoredCommands
                     argSpans.forEachIndexed { idx, sp ->
                         if (!ignored && idx + 1 == target) {
                             blank(sp[0], sp[0] + 1)              // '{'

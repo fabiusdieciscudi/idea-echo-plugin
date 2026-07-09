@@ -305,7 +305,7 @@ class EchoToolWindowPanel(private val project: Project) :
 
         val isTex = vFile?.name?.endsWith(".tex", ignoreCase = true) == true
         echoes = if (document != null && isTex)
-            RepetitionAnalyzer.analyze(document.text, settings.minWordLength, settings.windowSize)
+            RepetitionAnalyzer.analyze(document.text, settings.toParams())
         else emptyList()
 
         // Group by Snowball stem; variants sorted alphabetically.
