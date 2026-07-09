@@ -18,7 +18,8 @@ class EchoAnnotator : Annotator {
         if (!vFile.name.endsWith(".tex", ignoreCase = true)) return
         if (!EchoHighlightState.getInstance(element.project).isEnabled()) return
 
-        for (echo in RepetitionAnalyzer.analyze(element.text)) {
+        val settings = EchoSettings.getInstance(element.project)
+        for (echo in RepetitionAnalyzer.analyze(element.text, settings.minWordLength, settings.windowSize)) {
             val bg = WordColors.colorFor(echo.word, echo.sameSentence)
             val attrs = TextAttributes().apply {
                 backgroundColor = bg

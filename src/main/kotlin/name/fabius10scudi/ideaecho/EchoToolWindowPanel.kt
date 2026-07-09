@@ -4,7 +4,6 @@ import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
@@ -25,6 +24,7 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.ui.JBColor
@@ -39,9 +39,14 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.text.Collator
 import java.util.Locale
+import javax.swing.BoxLayout
+import javax.swing.JComponent
+import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JSpinner
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
+import javax.swing.SpinnerNumberModel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.DefaultTableModel
 
@@ -49,14 +54,16 @@ import javax.swing.table.DefaultTableModel
 class EchoToolWindowPanel(private val project: Project) :
     JPanel(BorderLayout()), Disposable {
 
-    /** One table row = all variants sharing the same stem (e.g. "stella/stelle"). */
+    /** One table row = all variants sharing the same Snowball stem (e.g. "porta/portare"). */
     private data class EchoRow(
-        val display: String,      // variants joined alphabetically, e.g. "stella/stelle"
+        val display: String,      // variants joined alphabetically
         val count: Int,           // total occurrences across variants
         val firstOffset: Int,     // offset of the earliest occurrence
         val searchWord: String,   // first variant, passed to the REST dictionary
         val ranges: List<Pair<Int, Int>>, // (start, end) of every occurrence in the group
     )
+
+    private val settings get() = EchoSettings.getInstance(project)
 
     private val tableModel = object : DefaultTableModel(
         arrayOf(
@@ -75,6 +82,19 @@ class EchoToolWindowPanel(private val project: Project) :
         autoCreateRowSorter = true
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
     }
+
+    private val minLengthCombo = ComboBox(
+        (EchoSettings.MIN_WORD_LENGTH_MIN..EchoSettings.MIN_WORD_LENGTH_MAX).toList().toTypedArray()
+    )
+    private val windowSpinner = JSpinner(
+        SpinnerNumberModel(
+            EchoSettings.DEFAULT_WINDOW_SIZE,
+            EchoSettings.WINDOW_MIN,
+            EchoSettings.WINDOW_MAX,
+            EchoSettings.WINDOW_STEP,
+        )
+    )
+    private var syncingControls = false
 
     private val thesaurus = ThesaurusView(this)
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -111,7 +131,7 @@ class EchoToolWindowPanel(private val project: Project) :
             firstComponent = JBScrollPane(table)
             secondComponent = thesaurus.component
         }
-        add(buildToolbar().component, BorderLayout.NORTH)
+        add(buildToolbarPanel(), BorderLayout.NORTH)
         add(splitter, BorderLayout.CENTER)
 
         // Single click: load synonyms for the first variant + underline occurrences.
@@ -147,12 +167,17 @@ class EchoToolWindowPanel(private val project: Project) :
                 }
             },
         )
+        // Settings changed from the Settings page: mirror them here and reset.
+        connection.subscribe(EchoSettingsNotifier.TOPIC, EchoSettingsListener {
+            syncControlsFromSettings()
+            resetAll()
+        })
 
         // The panel is created when the tool window is first shown -> start active.
         setActive(true)
     }
 
-    /** Turns highlighting + background search on/off following tool window visibility. */
+    /** Turns highlighting + background analysis on/off following tool window visibility. */
     private fun setActive(value: Boolean) {
         if (value == active) return
         active = value
@@ -177,20 +202,58 @@ class EchoToolWindowPanel(private val project: Project) :
         DaemonCodeAnalyzer.getInstance(project).restart()
     }
 
-    private fun buildToolbar(): ActionToolbar {
+    private fun buildToolbarPanel(): JComponent {
         val group = DefaultActionGroup().apply {
             add(object : AnAction(
                 EchoBundle.message("toolwindow.action.refresh"),
                 null,
                 AllIcons.Actions.Refresh,
             ) {
-                override fun actionPerformed(e: AnActionEvent) = refresh()
+                override fun actionPerformed(e: AnActionEvent) {
+                    clearHighlights()   // Refresh also clears the current word marking
+                    lastCaretKey = null
+                    refresh()
+                }
             })
         }
-        val toolbar = ActionManager.getInstance()
-            .createActionToolbar("IdeaEchoToolbar", group, true)
+        val toolbar = ActionManager.getInstance().createActionToolbar("IdeaEchoToolbar", group, true)
         toolbar.targetComponent = this
-        return toolbar
+
+        syncControlsFromSettings()
+        minLengthCombo.addActionListener { onControlsChanged() }
+        windowSpinner.addChangeListener { onControlsChanged() }
+
+        return JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            add(toolbar.component)
+            add(JLabel("  Min:"))
+            add(minLengthCombo)
+            add(JLabel("  Window:"))
+            add(windowSpinner)
+        }
+    }
+
+    private fun syncControlsFromSettings() {
+        syncingControls = true
+        minLengthCombo.selectedItem = settings.minWordLength
+        windowSpinner.value = settings.windowSize
+        syncingControls = false
+    }
+
+    /** Toolbar edit -> persist, then reset everything. */
+    private fun onControlsChanged() {
+        if (syncingControls) return
+        settings.minWordLength = minLengthCombo.selectedItem as Int
+        settings.windowSize = windowSpinner.value as Int
+        resetAll()
+    }
+
+    /** Full reset after a parameter change: drop markings, re-analyze, repaint the editor. */
+    private fun resetAll() {
+        clearHighlights()
+        lastCaretKey = null
+        refresh()
+        DaemonCodeAnalyzer.getInstance(project).restart()
     }
 
     private fun scheduleRefresh() {
@@ -219,9 +282,11 @@ class EchoToolWindowPanel(private val project: Project) :
         }
 
         val isTex = vFile?.name?.endsWith(".tex", ignoreCase = true) == true
-        echoes = if (document != null && isTex) RepetitionAnalyzer.analyze(document.text) else emptyList()
+        echoes = if (document != null && isTex)
+            RepetitionAnalyzer.analyze(document.text, settings.minWordLength, settings.windowSize)
+        else emptyList()
 
-        // Group by stem + length; variants sorted alphabetically (stella/stelle).
+        // Group by Snowball stem; variants sorted alphabetically.
         val builtRows = ArrayList<EchoRow>()
         val builtMap = HashMap<String, EchoRow>()
         for ((key, list) in echoes.groupBy { groupKey(it.word) }) {
@@ -243,11 +308,7 @@ class EchoToolWindowPanel(private val project: Project) :
         for (r in rows) tableModel.addRow(arrayOf<Any>(r.display, r.count))
     }
 
-// Previous grouping key: stem + length (kept equal-length variants together).
-// private fun groupKey(word: String) =
-//     "${word.length}\u0000${RepetitionAnalyzer.stem(word)}"
-
-    // With Snowball, variants differ in length (portare/porta) -> group by stem only.
+    /** Grouping key shared with the analyzer: the Snowball stem. */
     private fun groupKey(word: String) = RepetitionAnalyzer.stem(word)
 
     /** When the caret enters a highlighted word, trigger the same action as a table click. */
@@ -272,9 +333,9 @@ class EchoToolWindowPanel(private val project: Project) :
         val markup = editor.markupModel
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
-            effectType = EffectType.ROUNDED_BOX // BOLD_LINE_UNDERSCORE
+            effectType = EffectType.LINE_UNDERSCORE
             effectColor = JBColor.RED
-            errorStripeColor = JBColor.RED
+            errorStripeColor = JBColor.RED   // marker on the right-hand stripe
         }
         for ((start, end) in ranges) {
             if (start < 0 || end > length || start >= end) continue

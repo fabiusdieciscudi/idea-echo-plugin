@@ -3,12 +3,6 @@ package name.fabius10scudi.ideaecho
 /** Tunable parameters. */
 object EchoConfig {
 
-    /** Minimum word length to be considered. */
-    const val MIN_WORD_LENGTH = 4
-
-    /** Number of words to look back for repetitions. */
-    const val WINDOW_SIZE = 150
-
     /** Vowels (accented included) for the "except final vowel" match. */
     const val VOWELS = "aeiouàèéìíòóùú"
 

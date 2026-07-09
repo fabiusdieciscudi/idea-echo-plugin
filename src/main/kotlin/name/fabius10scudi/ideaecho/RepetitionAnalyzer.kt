@@ -36,7 +36,7 @@ object RepetitionAnalyzer {
     private val stemmer = ThreadLocal.withInitial { italianStemmer() }
     private val stemCache = ConcurrentHashMap<String, String>()
 
-    fun analyze(text: String): List<Echo> {
+    fun analyze(text: String, minWordLength: Int, windowSize: Int): List<Echo> {
         val masked = maskLatex(text) // same length as text, so offsets stay valid
 
         val window = ArrayDeque<Occurrence>()
@@ -56,7 +56,7 @@ object RepetitionAnalyzer {
                 val word = if (isCommand) raw else raw.lowercase()
 
                 if (!isCommand &&
-                    (word.length < EchoConfig.MIN_WORD_LENGTH || word in EchoConfig.IGNORED)
+                    (word.length < minWordLength || word in EchoConfig.IGNORED)
                 ) continue
 
                 val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first)
@@ -72,7 +72,7 @@ object RepetitionAnalyzer {
                 }
 
                 window.addLast(current)
-                if (window.size > EchoConfig.WINDOW_SIZE) window.removeFirst()
+                if (window.size > windowSize) window.removeFirst()
             }
             sentenceId++
         }

@@ -33,5 +33,10 @@
                     anchor="right"
                     secondary="true"
                     canCloseContents="false"/>
+
+        <projectConfigurable parentId="tools"
+                             id="name.fabius10scudi.ideaecho.settings"
+                             displayName="Idea Echo"
+                             instance="name.fabius10scudi.ideaecho.EchoConfigurable"/>
     </extensions>
 </idea-plugin>
