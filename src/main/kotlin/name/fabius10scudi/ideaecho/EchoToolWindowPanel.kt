@@ -61,6 +61,8 @@ class EchoToolWindowPanel(private val project: Project) :
         val firstOffset: Int,     // offset of the earliest occurrence
         val searchWord: String,   // first variant, passed to the REST dictionary
         val ranges: List<Pair<Int, Int>>, // (start, end) of every occurrence in the group
+        val minWordGap: Int,      // minimum distance in accepted words
+        val minSentenceGap: Int,  // minimum distance in sentences (0 = same sentence)
     )
 
     private val settings get() = EchoSettings.getInstance(project)
@@ -69,12 +71,14 @@ class EchoToolWindowPanel(private val project: Project) :
         arrayOf(
             EchoBundle.message("toolwindow.column.word"),
             EchoBundle.message("toolwindow.column.count"),
+            EchoBundle.message("toolwindow.column.wordGap"),
+            EchoBundle.message("toolwindow.column.sentenceGap"),
         ),
         0,
     ) {
         override fun isCellEditable(row: Int, column: Int) = false
         override fun getColumnClass(columnIndex: Int): Class<*> =
-            if (columnIndex == 1) Integer::class.java else String::class.java
+            if (columnIndex == 0) String::class.java else Integer::class.java
     }
 
     private val table = JBTable(tableModel).apply {
@@ -94,6 +98,7 @@ class EchoToolWindowPanel(private val project: Project) :
             EchoSettings.WINDOW_STEP,
         )
     )
+    private val thesaurusCombo = ComboBox(EchoConfig.THESAURUS_SERVERS.toTypedArray())
     private var syncingControls = false
 
     private val thesaurus = ThesaurusView(this)
@@ -127,18 +132,29 @@ class EchoToolWindowPanel(private val project: Project) :
 
         table.columnModel.getColumn(0).cellRenderer = WordCellRenderer()
 
+        val thesaurusPanel = JPanel(BorderLayout()).apply {
+            add(thesaurusCombo, BorderLayout.NORTH)
+            add(thesaurus.component, BorderLayout.CENTER)
+        }
         val splitter = JBSplitter(true, 0.5f).apply {
             firstComponent = JBScrollPane(table)
-            secondComponent = thesaurus.component
+            secondComponent = thesaurusPanel
         }
         add(buildToolbarPanel(), BorderLayout.NORTH)
         add(splitter, BorderLayout.CENTER)
+
+        // Reload the current word when the thesaurus server changes.
+        thesaurusCombo.addActionListener {
+            if (syncingControls) return@addActionListener
+            settings.thesaurusIndex = thesaurusCombo.selectedIndex
+            selectedRow()?.let { showThesaurus(it.searchWord) }
+        }
 
         // Single click: load synonyms for the first variant + underline occurrences.
         table.selectionModel.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
                 selectedRow()?.let { row ->
-                    thesaurus.showWord(row.searchWord)
+                    showThesaurus(row.searchWord)
                     highlightOccurrences(row.ranges)
                 }
             }
@@ -237,6 +253,7 @@ class EchoToolWindowPanel(private val project: Project) :
         syncingControls = true
         minLengthCombo.selectedItem = settings.minWordLength
         windowSpinner.value = settings.windowSize
+        thesaurusCombo.selectedIndex = settings.thesaurusIndex
         syncingControls = false
     }
 
@@ -254,6 +271,11 @@ class EchoToolWindowPanel(private val project: Project) :
         lastCaretKey = null
         refresh()
         DaemonCodeAnalyzer.getInstance(project).restart()
+    }
+
+    private fun showThesaurus(word: String) {
+        val template = EchoConfig.THESAURUS_SERVERS[settings.thesaurusIndex].urlTemplate
+        thesaurus.showWord(word, template)
     }
 
     private fun scheduleRefresh() {
@@ -291,12 +313,20 @@ class EchoToolWindowPanel(private val project: Project) :
         val builtMap = HashMap<String, EchoRow>()
         for ((key, list) in echoes.groupBy { groupKey(it.word) }) {
             val variants = list.map { it.word }.distinct().sortedWith { a, b -> collator.compare(a, b) }
+            // Minimum gaps: computed independently over adjacent occurrences once sorted.
+            val byWordIndex = list.sortedBy { it.wordIndex }
+            val minWordGap = byWordIndex.zipWithNext()
+                .minOfOrNull { (a, b) -> b.wordIndex - a.wordIndex } ?: 0
+            val minSentenceGap = byWordIndex.zipWithNext()
+                .minOfOrNull { (a, b) -> b.sentenceId - a.sentenceId } ?: 0
             val row = EchoRow(
                 display = variants.joinToString("/"),
                 count = list.size,
                 firstOffset = list.minOf { it.startOffset },
                 searchWord = variants.first(),
                 ranges = list.map { it.startOffset to it.endOffset },
+                minWordGap = minWordGap,
+                minSentenceGap = minSentenceGap,
             )
             builtRows += row
             builtMap[key] = row
@@ -305,7 +335,7 @@ class EchoToolWindowPanel(private val project: Project) :
         rowByKey = builtMap
 
         tableModel.rowCount = 0
-        for (r in rows) tableModel.addRow(arrayOf<Any>(r.display, r.count))
+        for (r in rows) tableModel.addRow(arrayOf<Any>(r.display, r.count, r.minWordGap, r.minSentenceGap))
     }
 
     /** Grouping key shared with the analyzer: the Snowball stem. */
@@ -321,7 +351,7 @@ class EchoToolWindowPanel(private val project: Project) :
         if (key == lastCaretKey) return   // still inside the same echo word: don't re-trigger
         lastCaretKey = key
         key?.let { rowByKey[it] }?.let { row ->
-            thesaurus.showWord(row.searchWord)
+            showThesaurus(row.searchWord)
             highlightOccurrences(row.ranges)
         }
     }
@@ -333,7 +363,7 @@ class EchoToolWindowPanel(private val project: Project) :
         val markup = editor.markupModel
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
-            effectType = EffectType.ROUNDED_BOX // BOLD_LINE_UNDERSCORE
+            effectType = EffectType.LINE_UNDERSCORE
             effectColor = JBColor.RED
             errorStripeColor = JBColor.RED   // marker on the right-hand stripe
         }

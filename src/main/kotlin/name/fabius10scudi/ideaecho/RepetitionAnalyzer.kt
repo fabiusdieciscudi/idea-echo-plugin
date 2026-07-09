@@ -9,6 +9,8 @@ data class Echo(
     val startOffset: Int,
     val endOffset: Int,
     val sameSentence: Boolean, // repeated inside the same sentence -> painted red
+    val wordIndex: Int,        // progressive index among *accepted* words (matches the window)
+    val sentenceId: Int,       // sentence number, 0-based
 )
 
 private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
@@ -30,7 +32,12 @@ object RepetitionAnalyzer {
     // (?U) makes \w and \b Unicode-aware so accented Italian letters are matched.
     private val TOKEN_PATTERN = Regex("""(?U)\\[A-Za-z]+|\b\w+(?:-\w+)?\b""")
 
-    private data class Occurrence(val word: String, val sentenceId: Int, val offset: Int)
+    private data class Occurrence(
+        val word: String,
+        val sentenceId: Int,
+        val offset: Int,
+        val wordIndex: Int,
+    )
 
     // italianStemmer keeps mutable state -> one instance per thread.
     private val stemmer = ThreadLocal.withInitial { italianStemmer() }
@@ -59,7 +66,9 @@ object RepetitionAnalyzer {
                     (word.length < minWordLength || word in EchoConfig.IGNORED)
                 ) continue
 
-                val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first)
+                var wordCounter = 0   // counts only accepted words, like the sliding window does
+                val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first, wordCounter)
+                wordCounter++
 
                 for (prev in window) {
                     if (wordsMatch(prev.word, word)) {
@@ -87,6 +96,8 @@ object RepetitionAnalyzer {
                     startOffset = occ.offset,
                     endOffset = occ.offset + occ.word.length,
                     sameSentence = (countByWord[occ.word] ?: 0) > 1,
+                    wordIndex = occ.wordIndex,
+                    sentenceId = occ.sentenceId,
                 )
             }
         }

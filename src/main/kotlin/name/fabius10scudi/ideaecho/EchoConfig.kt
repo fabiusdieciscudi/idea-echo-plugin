@@ -6,9 +6,16 @@ object EchoConfig {
 //    /** Vowels (accented included) for the "except final vowel" match. */
 //    const val VOWELS = "aeiouàèéìíòóùú"
 
-    /** REST endpoint of the synonyms/antonyms dictionary. %s = URL-encoded word. */
-//    const val THESAURUS_URL_TEMPLATE = "https://sapere.virgilio.it/parole/sinonimi-e-contrari/%s"
-    const val THESAURUS_URL_TEMPLATE = "https://synonyms.reverso.net/sinonimi/it/%s"
+    /** A thesaurus REST endpoint. %s = URL-encoded word. */
+    data class ThesaurusServer(val label: String, val urlTemplate: String) {
+        override fun toString(): String = label   // shown in the combo box
+    }
+
+    /** Available thesaurus servers; the first one is the default. */
+    val THESAURUS_SERVERS: List<ThesaurusServer> = listOf(
+        ThesaurusServer("Reverso", "https://synonyms.reverso.net/sinonimi/it/%s"),
+        ThesaurusServer("Virgilio (it)", "https://sapere.virgilio.it/parole/sinonimi-e-contrari/%s"),
+    )
 
     /** LaTeX commands whose argument (and the command itself) must be fully ignored. */
     val IGNORED_COMMANDS: Set<String> = setOf("comment", "note", "scene", "beat", "ellipsis", "temporaljump") // command names, no backslash

@@ -32,10 +32,8 @@ class ThesaurusView(parent: Disposable) : Disposable {
         Disposer.register(parent, this)
     }
 
-    fun showWord(word: String) {
-        val url = EchoConfig.THESAURUS_URL_TEMPLATE.format(
-            URLEncoder.encode(word, Charsets.UTF_8)
-        )
+    fun showWord(word: String, urlTemplate: String) {
+        val url = urlTemplate.format(URLEncoder.encode(word, Charsets.UTF_8))
         val b = browser
         if (b != null) {
             b.loadURL(url)

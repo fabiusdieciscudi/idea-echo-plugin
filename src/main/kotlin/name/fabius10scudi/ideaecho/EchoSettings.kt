@@ -14,6 +14,7 @@ class EchoSettings : PersistentStateComponent<EchoSettings.State> {
     data class State(
         var minWordLength: Int = DEFAULT_MIN_WORD_LENGTH,
         var windowSize: Int = DEFAULT_WINDOW_SIZE,
+        var thesaurusIndex: Int = 0,
     )
 
     private var state = State()
@@ -32,9 +33,14 @@ class EchoSettings : PersistentStateComponent<EchoSettings.State> {
         get() = state.windowSize
         set(value) { state.windowSize = value.coerceIn(WINDOW_MIN, WINDOW_MAX) }
 
+    var thesaurusIndex: Int
+        get() = state.thesaurusIndex
+        set(value) { state.thesaurusIndex = value.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex) }
+
     private fun State.clamp() {
         minWordLength = minWordLength.coerceIn(MIN_WORD_LENGTH_MIN, MIN_WORD_LENGTH_MAX)
         windowSize = windowSize.coerceIn(WINDOW_MIN, WINDOW_MAX)
+        thesaurusIndex = thesaurusIndex.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex)
     }
 
     companion object {
