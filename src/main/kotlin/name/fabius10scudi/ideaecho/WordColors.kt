@@ -1,6 +1,5 @@
 package name.fabius10scudi.ideaecho
 
-import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.util.ui.UIUtil
 import java.awt.Color
 import java.util.zip.CRC32
@@ -11,8 +10,8 @@ import java.util.zip.CRC32
  * variants of a group always share a hue.
  *
  * The light/dark variant is chosen from the *actual* background the colour will be
- * painted on (editor scheme, or table background), not from the IDE theme: a light
- * colour scheme under a dark IDE theme must still get light highlights.
+ * painted on, not from the IDE theme nor from the colour scheme: another plugin may
+ * repaint the editor background independently, so the caller passes the real colour.
  */
 object WordColors {
 
@@ -21,8 +20,9 @@ object WordColors {
 
     // ---- editor: word background -------------------------------------------
 
-    fun colorFor(word: String, sameSentence: Boolean): Color {
-        val dark = isDark(editorBackground())
+    /** [editorBackground] is the colour the editor really paints (see EchoHighlightState). */
+    fun colorFor(word: String, sameSentence: Boolean, editorBackground: Color): Color {
+        val dark = isDark(editorBackground)
         if (sameSentence) return background(0, dark)
         return background(HUES[stemHash(word).mod(HUES.size)], dark)
     }
@@ -48,9 +48,6 @@ object WordColors {
         else Color.getHSBColor(hueDeg / 360f, 0.85f, 0.55f)
 
     // ---- background probing --------------------------------------------------
-
-    private fun editorBackground(): Color =
-        EditorColorsManager.getInstance().globalScheme.defaultBackground
 
     /** Perceptual luminance against mid-grey. */
     private fun isDark(background: Color): Boolean {

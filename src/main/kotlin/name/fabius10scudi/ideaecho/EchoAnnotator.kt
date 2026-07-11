@@ -16,11 +16,13 @@ class EchoAnnotator : Annotator {
         if (element !is PsiFile) return
         val vFile = element.virtualFile ?: return
         if (!vFile.name.endsWith(".tex", ignoreCase = true)) return
-        if (!EchoHighlightState.getInstance(element.project).isEnabled()) return
+        val state = EchoHighlightState.getInstance(element.project)
+        if (!state.isEnabled()) return
+        val editorBackground = state.editorBackground()
 
         val settings = EchoSettings.getInstance(element.project)
         for (echo in RepetitionAnalyzer.analyze(element.text, settings.toParams())) {
-            val bg = WordColors.colorFor(echo.word, echo.sameSentence)
+            val bg = WordColors.colorFor(echo.word, echo.sameSentence, editorBackground)
             val attrs = TextAttributes().apply {
                 backgroundColor = bg
                 effectType = EffectType.BOXED
