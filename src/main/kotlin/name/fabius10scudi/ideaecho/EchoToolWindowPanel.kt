@@ -213,6 +213,7 @@ class EchoToolWindowPanel(private val project: Project) :
             observedDocument = null
             observedEditor?.caretModel?.removeCaretListener(caretListener)
             observedEditor = null
+            EchoHighlightState.getInstance(project).setEditorBackground(null)
             alarm.cancelAllRequests()
             echoes = emptyList()
             rows = emptyList()
@@ -323,6 +324,11 @@ class EchoToolWindowPanel(private val project: Project) :
             editor?.caretModel?.addCaretListener(caretListener)
             lastCaretKey = null
         }
+
+        // Capture the colour the editor really paints (another plugin may change it,
+        // independently of the colour scheme). Read here, on the EDT, for the annotator.
+        EchoHighlightState.getInstance(project)
+            .setEditorBackground(editor?.contentComponent?.background)
 
         val isTex = vFile?.name?.endsWith(".tex", ignoreCase = true) == true
         echoes = if (document != null && isTex)
