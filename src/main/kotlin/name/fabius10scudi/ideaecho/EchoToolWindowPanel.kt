@@ -296,8 +296,8 @@ class EchoToolWindowPanel(private val project: Project) :
     }
 
     private fun showThesaurus(word: String) {
-        val template = EchoConfig.THESAURUS_SERVERS[settings.thesaurusIndex].urlTemplate
-        thesaurus.showWord(word, template)
+        val server = EchoConfig.THESAURUS_SERVERS[settings.thesaurusIndex]
+        thesaurus.showUrl(word, server.urlFor(word))
     }
 
     private fun scheduleRefresh() {
