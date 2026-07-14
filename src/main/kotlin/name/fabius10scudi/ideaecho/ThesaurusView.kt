@@ -5,7 +5,6 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.JBUI
-import java.net.URLEncoder
 import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.JScrollPane
@@ -32,8 +31,7 @@ class ThesaurusView(parent: Disposable) : Disposable {
         Disposer.register(parent, this)
     }
 
-    fun showWord(word: String, urlTemplate: String) {
-        val url = urlTemplate.format(URLEncoder.encode(word, Charsets.UTF_8))
+    fun showUrl(word: String, url: String) {
         val b = browser
         if (b != null) {
             b.loadURL(url)
