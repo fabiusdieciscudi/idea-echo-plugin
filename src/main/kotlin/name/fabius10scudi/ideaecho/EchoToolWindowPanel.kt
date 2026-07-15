@@ -407,6 +407,7 @@ class EchoToolWindowPanel(private val project: Project) :
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
             fontType = Font.BOLD
+            foregroundColor = JBColor.RED
             effectType = EffectType.BOLD_LINE_UNDERSCORE
             effectColor = JBColor.RED
             errorStripeColor = JBColor.RED   // marker on the right-hand stripe
