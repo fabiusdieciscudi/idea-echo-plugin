@@ -407,10 +407,10 @@ class EchoToolWindowPanel(private val project: Project) :
         val length = editor.document.textLength
         val attrs = TextAttributes().apply {
             fontType = Font.BOLD
-            foregroundColor = JBColor.RED
+            foregroundColor = JBColor.getHSBColor(0f, 0.85f, 0.55f)
+            errorStripeColor = JBColor.RED
             effectType = EffectType.BOLD_LINE_UNDERSCORE
             effectColor = JBColor.RED
-            errorStripeColor = JBColor.RED   // marker on the right-hand stripe
         }
         for ((start, end) in ranges) {
             if (start < 0 || end > length || start >= end) continue

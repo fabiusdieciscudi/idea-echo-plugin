@@ -3,6 +3,7 @@ package name.fabius10scudi.ideaecho
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.TextRange
@@ -21,8 +22,12 @@ class EchoAnnotator : Annotator {
         val editorBackground = state.editorBackground()
 
         val settings = EchoSettings.getInstance(element.project)
-        for (echo in RepetitionAnalyzer.analyze(element.text, settings.toParams())) {
-            val bg = WordColors.colorFor(echo.word, echo.sameSentence, editorBackground)
+        val params = settings.toParams()
+        for (echo in RepetitionAnalyzer.analyze(element.text, params)) {
+            val alpha = WordColors.alphaFor(echo.minGap, params.windowSize)
+            val bg = WordColors.colorFor(
+                echo.word, echo.sameSentence, editorBackground, echo.minGap, params.windowSize
+            )
             val attrs = TextAttributes().apply {
                 backgroundColor = bg
                 effectType = EffectType.BOXED
@@ -31,7 +36,11 @@ class EchoAnnotator : Annotator {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                 .range(TextRange(echo.startOffset, echo.endOffset))
                 .enforcedTextAttributes(attrs)
-                .tooltip(EchoBundle.message("annotator.echo.tooltip", echo.word))
+                .tooltip(
+                    EchoBundle.message(
+                        "annotator.echo.tooltip", echo.word, echo.minGap, "%.2f".format(alpha)
+                    )
+                )
                 .create()
         }
     }
