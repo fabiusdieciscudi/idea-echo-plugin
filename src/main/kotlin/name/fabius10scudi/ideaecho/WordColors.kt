@@ -54,8 +54,11 @@ object WordColors {
 
     // ---- distance fading -----------------------------------------------------
 
-    /** Linear: 1.0 at a gap of one word, down to [MIN_ALPHA] at a full window. */
-    private fun alphaFor(minGap: Int, windowSize: Int): Float {
+    /**
+     * Linear: 1.0 at a gap of one word, down to [MIN_ALPHA] at a full window.
+     * Public so callers can report the value they are getting (tooltip, log).
+     */
+    fun alphaFor(minGap: Int, windowSize: Int): Float {
         if (windowSize <= 1) return 1f
         val gap = minGap.coerceIn(1, windowSize)
         val t = (gap - 1).toFloat() / (windowSize - 1).toFloat()
