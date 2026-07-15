@@ -21,8 +21,11 @@ class EchoAnnotator : Annotator {
         val editorBackground = state.editorBackground()
 
         val settings = EchoSettings.getInstance(element.project)
-        for (echo in RepetitionAnalyzer.analyze(element.text, settings.toParams())) {
-            val bg = WordColors.colorFor(echo.word, echo.sameSentence, editorBackground)
+        val params = settings.toParams()
+        for (echo in RepetitionAnalyzer.analyze(element.text, params)) {
+            val bg = WordColors.colorFor(
+                echo.word, echo.sameSentence, editorBackground, echo.minGap, params.windowSize
+            )
             val attrs = TextAttributes().apply {
                 backgroundColor = bg
                 effectType = EffectType.BOXED
@@ -31,7 +34,7 @@ class EchoAnnotator : Annotator {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                 .range(TextRange(echo.startOffset, echo.endOffset))
                 .enforcedTextAttributes(attrs)
-                .tooltip(EchoBundle.message("annotator.echo.tooltip", echo.word))
+                .tooltip(EchoBundle.message("annotator.echo.tooltip", echo.word, echo.minGap))
                 .create()
         }
     }

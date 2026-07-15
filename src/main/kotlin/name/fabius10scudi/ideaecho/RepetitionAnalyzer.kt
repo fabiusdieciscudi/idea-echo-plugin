@@ -11,6 +11,7 @@ data class Echo(
     val sameSentence: Boolean, // repeated inside the same sentence -> painted red
     val wordIndex: Int,        // progressive index among *accepted* words (matches the window)
     val sentenceId: Int,       // sentence number, 0-based
+    val minGap: Int,           // words to the nearest occurrence of the same group (1..windowSize)
 )
 
 /**
@@ -130,11 +131,12 @@ object RepetitionAnalyzer {
                     sameSentence = (countByWord[occ.word] ?: 0) > 1,
                     wordIndex = occ.wordIndex,
                     sentenceId = occ.sentenceId,
+                    minGap = 0,   // filled in by withMinGaps below
                 )
             }
         }
         echoes.sortBy { it.startOffset }
-        return echoes
+        return withMinGaps(echoes, params.windowSize)
     }
 
 // --- Previous rule: equal, or equal except the final vowel (same length) ---
@@ -146,6 +148,27 @@ object RepetitionAnalyzer {
 //         w2.last() in EchoConfig.VOWELS &&
 //         w1.dropLast(1) == w2.dropLast(1)
 // }
+
+    /**
+     * Fills [Echo.minGap]: for every occurrence, the distance in accepted words to the
+     * closest other occurrence of the same group, looking both backwards and forwards.
+     * Clamped to 1..[windowSize], since a farther occurrence could not be an echo.
+     */
+    private fun withMinGaps(echoes: List<Echo>, windowSize: Int): List<Echo> {
+        if (echoes.isEmpty()) return echoes
+        val gaps = IntArray(echoes.size) { windowSize }
+        for ((_, indices) in echoes.indices.groupBy { stem(echoes[it].word) }) {
+            val ordered = indices.sortedBy { echoes[it].wordIndex }
+            for (k in ordered.indices) {
+                val current = echoes[ordered[k]].wordIndex
+                var best = Int.MAX_VALUE
+                if (k > 0) best = minOf(best, current - echoes[ordered[k - 1]].wordIndex)
+                if (k < ordered.size - 1) best = minOf(best, echoes[ordered[k + 1]].wordIndex - current)
+                if (best != Int.MAX_VALUE) gaps[ordered[k]] = best.coerceIn(1, windowSize)
+            }
+        }
+        return echoes.mapIndexed { i, echo -> echo.copy(minGap = gaps[i]) }
+    }
 
     private fun wordsMatch(w1: String, w2: String): Boolean {
         if (w1 == w2) return true
