@@ -76,8 +76,8 @@ object WordColors {
 
     /** Pale wash on a light background, deep tint on a dark one. */
     private fun background(hueDeg: Int, dark: Boolean): Color =
-        if (dark) Color.getHSBColor(hueDeg / 360f, 0.55f, 0.42f)
-        else Color.getHSBColor(hueDeg / 360f, 0.30f, 0.98f)
+        if (dark) Color.getHSBColor(hueDeg / 360f, DARK_SATURATION, DARK_BRIGHTNESS)
+        else Color.getHSBColor(hueDeg / 360f, LIGHT_SATURATION, LIGHT_BRIGHTNESS)
 
     /** Readable as text: dark and saturated on light, bright on dark. */
     private fun foreground(hueDeg: Int, dark: Boolean): Color =
@@ -94,6 +94,19 @@ object WordColors {
     }
 
     private const val MIN_ALPHA = 0.3f
+
+    /**
+     * Full-strength echo background. It has to sit well clear of the editor background,
+     * because the distance fade blends it towards that colour: the gap between the two
+     * is the whole budget the fade can spend. The previous pale wash (saturation 0.30 on
+     * white) left alpha 0.98 and 0.60 just 30 levels of red and 2 of blue apart, so the
+     * fade was computed correctly but could not be seen. Lower these to tone the
+     * highlighting down, at the cost of making the fade harder to read.
+     */
+    private const val LIGHT_SATURATION = 0.70f
+    private const val LIGHT_BRIGHTNESS = 0.98f
+    private const val DARK_SATURATION = 0.60f
+    private const val DARK_BRIGHTNESS = 0.75f
 
     private fun stemHash(word: String): Int {
         val stem = RepetitionAnalyzer.stem(word)

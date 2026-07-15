@@ -28,10 +28,6 @@ class EchoAnnotator : Annotator {
             val bg = WordColors.colorFor(
                 echo.word, echo.sameSentence, editorBackground, echo.minGap, params.windowSize
             )
-//            thisLogger().debug {
-//                "echo '${echo.word}' gap=${echo.minGap} window=${params.windowSize} " +
-//                    "alpha=$alpha bg=$bg over=$editorBackground"
-//            }
             val attrs = TextAttributes().apply {
                 backgroundColor = bg
                 effectType = EffectType.BOXED
