@@ -42,6 +42,8 @@ Morph-it! lexicon, by their dictionary form (`strinse` and `stringeva`).
 - **TeXiFy IDEA** is optional but recommended. With it installed, `.tex` files use
   the `Latex` language; without it they are plain text. The plugin registers its
   annotator for **both**, so it works either way.
+- The bundled **Web Browser (JCEF)** plugin must be enabled. From 2026.2 the embedded
+  browser used by the thesaurus pane is a plugin of its own, and Idea Echo depends on it.
 
 ## Building and installing
 
