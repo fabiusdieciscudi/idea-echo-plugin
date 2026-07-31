@@ -93,7 +93,7 @@ object WordColors {
         return luminance < 0.5
     }
 
-    private const val MIN_ALPHA = 0.3f
+    private const val MIN_ALPHA = 0.1f
 
     /**
      * Full-strength echo background. It has to sit well clear of the editor background,
