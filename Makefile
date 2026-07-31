@@ -16,7 +16,7 @@ test:
 run:	build
 	./gradlew runIde
 
-plugin:
+plugin: build
 	./gradlew buildPlugin
 
 verify:
