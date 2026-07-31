@@ -1,17 +1,6 @@
-import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
+/*
+ * © Copyright 2026-present by Fabius Dieciscudi. Licensed under the MIT License, see LICENSE.
+ *
+ */
 
 rootProject.name = "idea-echo-plugin"
-
-plugins {
-    id("org.jetbrains.intellij.platform.settings") version "2.17.0"
-}
-
-dependencyResolutionManagement {
-    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
-    repositories {
-        mavenCentral()
-        intellijPlatform {
-            defaultRepositories()
-        }
-    }
-}
