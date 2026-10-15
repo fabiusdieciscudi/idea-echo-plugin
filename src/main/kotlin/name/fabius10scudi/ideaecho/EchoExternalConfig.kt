@@ -10,6 +10,7 @@ import java.nio.file.Path
 data class EchoData(
     val minWordLength: Int,
     val windowSize: Int,
+    val minCommonPrefix: Int,
     val ignoredCommands: List<String>,
     val ignoredWords: List<String>,
     val textArgument: Map<String, Int>,
@@ -23,6 +24,7 @@ object EchoExternalConfig {
 
     private const val KEY_MIN_WORD_LENGTH = "minWordLength"
     private const val KEY_WINDOW_SIZE = "windowSize"
+    private const val KEY_MIN_COMMON_PREFIX = "minCommonPrefix"
     private const val KEY_IGNORED_COMMANDS = "ignoredCommands"
     private const val KEY_IGNORED_WORDS = "ignoredWords"
     private const val KEY_TEXT_ARGUMENT = "textArgument"
@@ -50,6 +52,8 @@ object EchoExternalConfig {
                     ?: EchoSettings.DEFAULT_MIN_WORD_LENGTH,
                 windowSize = (root[KEY_WINDOW_SIZE] as? Number)?.toInt()
                     ?: EchoSettings.DEFAULT_WINDOW_SIZE,
+                minCommonPrefix = (root[KEY_MIN_COMMON_PREFIX] as? Number)?.toInt()
+                    ?: EchoSettings.DEFAULT_MIN_COMMON_PREFIX,
                 ignoredCommands = stringList(root[KEY_IGNORED_COMMANDS], EchoConfig.DEFAULT_IGNORED_COMMANDS),
                 ignoredWords = stringList(root[KEY_IGNORED_WORDS], EchoConfig.DEFAULT_IGNORED),
                 textArgument = intMap(root[KEY_TEXT_ARGUMENT], EchoConfig.DEFAULT_TEXT_ARGUMENT),
@@ -66,6 +70,7 @@ object EchoExternalConfig {
         val root = LinkedHashMap<String, Any>()
         root[KEY_MIN_WORD_LENGTH] = data.minWordLength
         root[KEY_WINDOW_SIZE] = data.windowSize
+        root[KEY_MIN_COMMON_PREFIX] = data.minCommonPrefix
         root[KEY_IGNORED_COMMANDS] = data.ignoredCommands
         root[KEY_IGNORED_WORDS] = data.ignoredWords
         root[KEY_TEXT_ARGUMENT] = LinkedHashMap(data.textArgument)

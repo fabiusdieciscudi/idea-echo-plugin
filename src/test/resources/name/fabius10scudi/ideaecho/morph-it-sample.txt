@@ -1,0 +1,13 @@
+andare	andare	VER:inf
+andrà	andare	VER:ind+fut+3+s
+era	essere	AUX:impf+3+s
+era	era	NOUN-F:s
+erano	essere	AUX:impf+3+p
+offerto	offrire	VER:part+pass+s+m
+offriva	offrire	VER:impf+3+s
+pochi	poco	ADJ:pos+m+p
+poco	poco	ADJ:pos+m+s
+poco	poco	ADV
+unito	unire	VER:part+pass+s+m
+unito	unito	ADJ:pos+m+s
+univa	unire	VER:impf+3+s

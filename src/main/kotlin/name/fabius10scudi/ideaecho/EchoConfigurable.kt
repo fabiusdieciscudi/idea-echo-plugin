@@ -17,6 +17,7 @@ import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBUI
 import java.awt.Dimension
 import java.awt.FlowLayout
+import java.nio.file.Files
 import java.nio.file.Paths
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -42,6 +43,18 @@ class EchoConfigurable(private val project: Project) : Configurable {
             EchoSettings.WINDOW_STEP,
         )
     )
+
+    private val prefixSpinner = JSpinner(
+        SpinnerNumberModel(
+            EchoSettings.DEFAULT_MIN_COMMON_PREFIX,
+            EchoSettings.COMMON_PREFIX_MIN,
+            EchoSettings.COMMON_PREFIX_MAX,
+            1,
+        )
+    )
+
+    /** IDE-wide, stored in EchoAppSettings, never in the YAML file. */
+    private val lexiconPathField = TextFieldWithBrowseButton()
 
     private val externalCheck = JBCheckBox(EchoBundle.message("settings.external.checkbox"))
     private val externalPathField = TextFieldWithBrowseButton()
@@ -72,6 +85,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     }
 
     private val settings get() = EchoSettings.getInstance(project)
+    private val appSettings get() = EchoAppSettings.getInstance()
 
     override fun getDisplayName(): String = EchoBundle.message("settings.displayName")
 
@@ -82,6 +96,12 @@ class EchoConfigurable(private val project: Project) : Configurable {
             project.guessProjectDir()?.let { setRoots(it) }
         }
         externalPathField.addBrowseFolderListener(null, null, project, descriptor)
+
+        // The lexicon is a downloaded file, usually outside the project: no root restriction.
+        val lexiconDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor().apply {
+            title = EchoBundle.message("settings.lexicon.chooserTitle")
+        }
+        lexiconPathField.addBrowseFolderListener(null, null, project, lexiconDescriptor)
 
         externalCheck.addActionListener { updateEnablement() }
 
@@ -122,9 +142,13 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addSeparator()
             .addLabeledComponent(EchoBundle.message("settings.minWordLength"), minLengthCombo)
             .addLabeledComponent(EchoBundle.message("settings.windowSize"), windowSpinner)
+            .addLabeledComponent(EchoBundle.message("settings.minCommonPrefix"), prefixSpinner)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredCommands"), commandsPanel)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.textArgument"), argumentPanel)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredWords"), JBScrollPane(wordsArea))
+            .addSeparator()
+            .addLabeledComponent(EchoBundle.message("settings.lexicon.file"), lexiconPathField)
+            .addTooltip(EchoBundle.message("settings.lexicon.comment"))
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -195,12 +219,22 @@ class EchoConfigurable(private val project: Project) : Configurable {
     }
 
     override fun isModified(): Boolean =
-        externalCheck.isSelected != settings.useExternalConfig ||
+        lexiconPathField.text.trim() != appSettings.lexiconPath ||
+            externalCheck.isSelected != settings.useExternalConfig ||
             externalPathField.text.trim() != settings.externalConfigPath ||
             formData() != settings.effective()
 
     override fun apply() {
         argumentTable.cellEditor?.stopCellEditing()
+
+        val lexiconPath = lexiconPathField.text.trim()
+        val lexiconReadable = runCatching { Paths.get(lexiconPath) }.getOrNull()
+            ?.let { Files.isRegularFile(it) && Files.isReadable(it) } == true
+        if (lexiconPath.isNotEmpty() && !lexiconReadable) {
+            throw ConfigurationException(EchoBundle.message("message.lexiconNotFound", lexiconPath))
+        }
+        // Read on first use, in the background (see EchoAppSettings.lexiconIfReady).
+        appSettings.lexiconPath = lexiconPath
 
         val wasExternal = settings.useExternalConfig
         val nowExternal = externalCheck.isSelected
@@ -228,6 +262,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     }
 
     override fun reset() {
+        lexiconPathField.text = appSettings.lexiconPath
         externalCheck.isSelected = settings.useExternalConfig
         externalPathField.text = settings.externalConfigPath.ifBlank {
             project.basePath?.let { "$it/${EchoSettings.DEFAULT_FILE_NAME}" } ?: ""
@@ -239,6 +274,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     private fun fillForm(data: EchoData) {
         minLengthCombo.selectedItem = data.minWordLength
         windowSpinner.value = data.windowSize
+        prefixSpinner.value = data.minCommonPrefix
 
         commandsModel.clear()
         data.ignoredCommands.forEach { commandsModel.addElement(it) }
@@ -254,6 +290,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     private fun formData() = EchoData(
         minWordLength = minLengthCombo.selectedItem as Int,
         windowSize = windowSpinner.value as Int,
+        minCommonPrefix = prefixSpinner.value as Int,
         ignoredCommands = currentCommands(),
         ignoredWords = currentWords(),
         textArgument = currentTextArgument(),

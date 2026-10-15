@@ -26,7 +26,7 @@ class EchoAnnotator : Annotator {
         for (echo in RepetitionAnalyzer.analyze(element.text, params)) {
             val alpha = WordColors.alphaFor(echo.minGap, params.windowSize)
             val bg = WordColors.colorFor(
-                echo.word, echo.sameSentence, editorBackground, echo.minGap, params.windowSize
+                echo.group, echo.sameSentence, editorBackground, echo.minGap, params.windowSize
             )
             val attrs = TextAttributes().apply {
                 backgroundColor = bg
