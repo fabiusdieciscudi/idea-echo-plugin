@@ -36,6 +36,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
@@ -119,9 +120,17 @@ class EchoToolWindowPanel(private val project: Project) :
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val collator = Collator.getInstance(Locale.ITALIAN)
 
+    /** Free search: a word typed here and confirmed with Enter is shown in the thesaurus view. */
+    private val searchField = SearchTextField(false).apply {
+        textEditor.emptyText.text = EchoBundle.message("toolwindow.search.placeholder")
+    }
+
+    /** The word the thesaurus view shows, to show it again once the local file is read. */
+    private var thesaurusWord: String? = null
+
     /**
-     * The group whose synonyms the thesaurus view shows: picking a synonym replaces an
-     * occurrence of it. Also used to show the page again once the local file is read.
+     * The group of that word, when the page was opened from an echo; null after a free
+     * search. Picking a synonym replaces an occurrence of the group under the caret.
      */
     private var thesaurusGroup: String? = null
 
@@ -155,8 +164,12 @@ class EchoToolWindowPanel(private val project: Project) :
 
         table.columnModel.getColumn(0).cellRenderer = WordCellRenderer()
 
+        val thesaurusBar = JPanel(BorderLayout(JBUI.scale(4), 0)).apply {
+            add(thesaurusCombo, BorderLayout.WEST)
+            add(searchField, BorderLayout.CENTER)
+        }
         val thesaurusPanel = JPanel(BorderLayout()).apply {
-            add(thesaurusCombo, BorderLayout.NORTH)
+            add(thesaurusBar, BorderLayout.NORTH)
             add(thesaurus.component, BorderLayout.CENTER)
         }
         val splitter = JBSplitter(true, 0.5f).apply {
@@ -170,14 +183,14 @@ class EchoToolWindowPanel(private val project: Project) :
         thesaurusCombo.addActionListener {
             if (syncingControls) return@addActionListener
             settings.thesaurusIndex = thesaurusCombo.selectedIndex
-            selectedRow()?.let { showThesaurus(it) }
+            thesaurusWord?.let { showThesaurus(it, thesaurusGroup) }
         }
 
         // Single click: load synonyms for the first variant + underline occurrences.
         table.selectionModel.addListSelectionListener { e ->
             if (!e.valueIsAdjusting && !syncingSelection) {
                 selectedRow()?.let { row ->
-                    showThesaurus(row)
+                    showThesaurus(row.searchWord, row.group)
                     highlightOccurrences(row.ranges)
                 }
             }
@@ -212,12 +225,17 @@ class EchoToolWindowPanel(private val project: Project) :
             resetAll()
             // The local thesaurus may just have been read: replace the "loading" page.
             if (currentThesaurusSource() == EchoConfig.LocalThesaurusSource) {
-                thesaurusGroup?.let { rowByKey[it] }?.let { showThesaurus(it) }
+                thesaurusWord?.let { showThesaurus(it, thesaurusGroup?.takeIf { g -> g in rowByKey }) }
             }
         })
 
         // A click on a synonym of the local thesaurus replaces the current echo.
         thesaurus.onPick = { replaceCurrentEcho(it) }
+
+        // Enter in the search field: synonyms of the typed word, not tied to any echo.
+        searchField.textEditor.addActionListener {
+            searchField.text.trim().takeIf { it.isNotEmpty() }?.let { showThesaurus(it, null) }
+        }
 
         // The panel is created when the tool window is first shown -> start active.
         setActive(true)
@@ -322,9 +340,11 @@ class EchoToolWindowPanel(private val project: Project) :
     private fun currentThesaurusSource(): EchoConfig.ThesaurusSource =
         EchoConfig.THESAURUS_SOURCES[settings.thesaurusIndex]
 
-    private fun showThesaurus(row: EchoRow) {
-        thesaurusGroup = row.group
-        val word = row.searchWord
+    /** Shows [word] in the thesaurus view; [group] is its echo group, null for a free search. */
+    private fun showThesaurus(word: String, group: String?) {
+        thesaurusWord = word
+        thesaurusGroup = group
+        if (searchField.text != word) searchField.text = word
         when (val source = currentThesaurusSource()) {
             is EchoConfig.ThesaurusServer -> thesaurus.showUrl(word, source.urlFor(word))
             EchoConfig.LocalThesaurusSource -> thesaurus.showHtml(localThesaurusPage(word))
@@ -358,11 +378,15 @@ class EchoToolWindowPanel(private val project: Project) :
     }
 
     /**
-     * Replaces an occurrence of the group shown in the thesaurus view with [synonym],
-     * keeping its capitalization. The occurrence is the one under the caret; right after
-     * a pick it is the text just inserted, so synonyms can be tried one after the other.
-     * When the caret is on neither, nothing is replaced and a hint says why: with the page
-     * opened from the table there may be many occurrences, and guessing would surprise.
+     * Replaces text in the editor with [synonym], keeping its capitalization. The text is,
+     * in order of preference:
+     *  - the text inserted by the previous pick, when the caret is on it, so synonyms can
+     *    be tried one after the other;
+     *  - the selection;
+     *  - for a page opened from an echo, the occurrence of its group under the caret;
+     *  - for a free search, the word under the caret.
+     * When there is none, nothing is replaced and a hint says why: with the page opened
+     * from the table there may be many occurrences, and guessing would surprise.
      */
     private fun replaceCurrentEcho(synonym: String) {
         val editor = observedEditor ?: return
@@ -373,11 +397,20 @@ class EchoToolWindowPanel(private val project: Project) :
             refresh()
         }
         val caret = editor.caretModel.offset
+        val selection = editor.selectionModel
+        val group = thesaurusGroup
         val target = lastReplacement?.takeIf { it.isValid && caret in it.startOffset..it.endOffset }?.textRange
-            ?: echoes.firstOrNull { it.group == thesaurusGroup && caret in it.startOffset..it.endOffset }
-                ?.let { TextRange(it.startOffset, it.endOffset) }
+            ?: selection.takeIf { it.hasSelection() }?.let { TextRange(it.selectionStart, it.selectionEnd) }
+            ?: if (group != null) {
+                echoes.firstOrNull { it.group == group && caret in it.startOffset..it.endOffset }
+                    ?.let { TextRange(it.startOffset, it.endOffset) }
+            } else {
+                TextCase.wordRangeAt(document.charsSequence, caret)
+                    ?.let { TextRange(it.first, it.last + 1) }
+            }
         if (target == null) {
-            HintManager.getInstance().showInformationHint(editor, EchoBundle.message("thesaurus.replace.noTarget"))
+            val key = if (group != null) "thesaurus.replace.noTarget" else "thesaurus.replace.noWord"
+            HintManager.getInstance().showInformationHint(editor, EchoBundle.message(key))
             return
         }
         if (!FileDocumentManager.getInstance().requestWriting(document, project)) return
@@ -392,6 +425,7 @@ class EchoToolWindowPanel(private val project: Project) :
         )
         lastReplacement?.dispose()
         lastReplacement = document.createRangeMarker(target.startOffset, target.startOffset + replacement.length)
+        selection.removeSelection()
         editor.caretModel.moveToOffset(target.startOffset)
         IdeFocusManager.getInstance(project).requestFocus(editor.contentComponent, true)
     }
@@ -474,7 +508,7 @@ class EchoToolWindowPanel(private val project: Project) :
         if (key == lastCaretKey) return   // still inside the same echo word: don't re-trigger
         lastCaretKey = key
         key?.let { rowByKey[it] }?.let { row ->
-            showThesaurus(row)
+            showThesaurus(row.searchWord, row.group)
             highlightOccurrences(row.ranges)
             selectRowInTable(row)
         }

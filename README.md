@@ -167,6 +167,10 @@ Below the table, a dropdown selects the synonyms/antonyms source, and the page f
 the currently selected word is rendered underneath. The choice is remembered per
 project.
 
+Next to the dropdown, a **search field** looks up any word: type it and press Enter.
+It works with every source. When you select an echo, the field shows the word looked
+up, so you can adjust it and search again.
+
 The sources are the online dictionaries, plus **Local thesaurus**, which reads a file on
 your computer instead (see [The local thesaurus](#the-local-thesaurus)). It works offline
 and lists the synonyms grouped by meaning, each meaning with its part of speech. When
@@ -174,16 +178,23 @@ the selected word is an inflected form, the [Morph-it! lexicon](#the-morph-it-le
 if configured, leads to the dictionary form: `strinse` shows the synonyms of
 `stringere`, `case` those of `casa`. Without the lexicon only dictionary forms are found.
 
-Every synonym on a *Local thesaurus* page can be clicked to **replace the echo**:
+Every synonym on a *Local thesaurus* page can be clicked to **replace text in the
+editor**. What gets replaced is, in this order:
 
-- The occurrence replaced is the one **under the caret**. Moving the caret onto a
-  highlighted word opens its page, so the usual gesture is: click the echo in the
-  editor, then click the synonym.
-- After a replacement the caret stays at the start of the new word, and clicking
-  another synonym replaces it again: you can try several in a row.
-- If the page was opened from the table and the caret is elsewhere, nothing is replaced
-  and a hint asks you to put the caret on the occurrence you mean. Double-clicking the
-  row jumps to the first occurrence.
+1. the word inserted by the previous click, if the caret is still on it: after a
+   replacement the caret stays at the start of the new word, so you can try several
+   synonyms in a row;
+2. the **selection**, if there is one;
+3. for a page opened from an echo, the occurrence **under the caret**. Moving the caret
+   onto a highlighted word opens its page, so the usual gesture is: click the echo in
+   the editor, then click the synonym;
+4. for a page opened from the search field, the word under the caret, whatever it is
+   (the name of a LaTeX command never counts as a word).
+
+If none applies, nothing is replaced and a hint says what to do. This happens, for
+instance, when the page was opened from the table and the caret is elsewhere: there may
+be many occurrences, so the plugin does not guess. Double-clicking the row jumps to the
+first one.
 - The capitalization of the original is kept (`Bella` → `Graziosa`, `BELLA` →
   `GRAZIOSA`), but not its inflection: the thesaurus gives dictionary forms, so
   replacing `bella` with `grazioso` leaves the agreement to you.
