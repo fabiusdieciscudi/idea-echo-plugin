@@ -33,9 +33,9 @@ so `portare` and `porta`, or `stella` and `stelle`, count as the same word.
 
 ## Requirements
 
-- IntelliJ IDEA 2024.3 or newer (Community or Ultimate). The plugin declares
-  `sinceBuild = 243`.
-- A JDK 21 as the Gradle JVM, which is what the 2024.3 platform expects.
+- IntelliJ IDEA 2026.1 or newer. The plugin declares `sinceBuild = 261` and is built
+  against IntelliJ IDEA 2026.1.4; it declares no Ultimate-only dependency.
+- A JDK 21 as the Gradle JVM, which the IntelliJ Platform requires.
 - **TeXiFy IDEA** is optional but recommended. With it installed, `.tex` files use
   the `Latex` language; without it they are plain text. The plugin registers its
   annotator for **both**, so it works either way.
@@ -273,10 +273,14 @@ SnakeYAML copy shipped with the IntelliJ platform, declared `compileOnly` so it 
 not bundled twice. If your IDE build does not expose it, change the dependency in
 `build.gradle.kts` to `implementation`.
 
-**Gradle fails at configuration time.** The IntelliJ Platform Gradle plugin is
-applied with its version in `settings.gradle.kts` only, and repositories are
-declared there too (`FAIL_ON_PROJECT_REPOS`). Do not add a `repositories { }` block
-or a plugin version in `build.gradle.kts`.
+**The build downloads the whole IDE.** Without further settings the platform is
+fetched as a remote artifact. To build against an IDE you already have installed, set
+its path in `~/.gradle/gradle.properties` (not in the project's `gradle.properties`,
+which is committed):
+
+```properties
+localIdePath=/Applications/IntelliJ IDEA.app
+```
 
 ## Known limitations
 
