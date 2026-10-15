@@ -8,7 +8,11 @@ import org.junit.Test
 /** The three grouping rules taken one at a time, and what the analyzer derives from them. */
 class WordMatchingTest {
 
-    private fun params(minCommonPrefix: Int = 0, lexicon: MorphLexicon? = null) = AnalyzerParams(
+    private fun params(
+        minCommonPrefix: Int = 0,
+        lexicon: MorphLexicon? = null,
+        useStemmer: Boolean = true,
+    ) = AnalyzerParams(
         minWordLength = 2,
         windowSize = 160,
         ignoredWords = emptySet(),
@@ -16,6 +20,7 @@ class WordMatchingTest {
         textArgument = emptyMap(),
         minCommonPrefix = minCommonPrefix,
         lexicon = lexicon,
+        useStemmer = useStemmer,
     )
 
     private fun matches(w1: String, w2: String, params: AnalyzerParams) =
@@ -25,6 +30,21 @@ class WordMatchingTest {
     fun `the stem alone groups regular inflections`() {
         assertTrue(matches("stessa", "stesse", params()))
         assertFalse(matches("bella", "bellezza", params()))
+    }
+
+    @Test
+    fun `the stemmer can be turned off`() {
+        // Same stem "cos", different words: the stemmer's typical false positive.
+        assertTrue(matches("cosa", "così", params()))
+        assertFalse(matches("cosa", "così", params(useStemmer = false)))
+    }
+
+    @Test
+    fun `without the stemmer the other rules still apply`() {
+        val p = params(minCommonPrefix = 4, lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertTrue("identical words", matches("casa", "casa", p))
+        assertTrue("same lemma", matches("offriva", "offerto", p))
+        assertTrue("common beginning", matches("stessa", "stesse", p))
     }
 
     @Test
@@ -50,7 +70,7 @@ class WordMatchingTest {
 
     @Test
     fun `with only the lexicon, an infinitive and its past tense are one group`() {
-        val p = params(lexicon = SampleLexicon.lexicon)
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
         val echoes = RepetitionAnalyzer.analyze("Volle constatare. Poi constat\u00f2, e constat\u00f2 ancora.", p)
         assertEquals(listOf("constatare", "constat\u00f2", "constat\u00f2"), echoes.map { it.word })
         assertEquals(1, echoes.map { it.group }.distinct().size)
@@ -61,7 +81,7 @@ class WordMatchingTest {
         // "constato" + U+0300 COMBINING GRAVE ACCENT, as text pasted from some macOS apps.
         val decomposed = "constato\u0300"
         val text = "Volle constatare. Poi $decomposed, e constat\u00f2 ancora."
-        val echoes = RepetitionAnalyzer.analyze(text, params(lexicon = SampleLexicon.lexicon))
+        val echoes = RepetitionAnalyzer.analyze(text, params(lexicon = SampleLexicon.lexicon, useStemmer = false))
         assertEquals(listOf("constatare", "constat\u00f2", "constat\u00f2"), echoes.map { it.word })
         assertEquals(1, echoes.map { it.group }.distinct().size)
         val start = text.indexOf(decomposed)
@@ -70,7 +90,7 @@ class WordMatchingTest {
 
     @Test
     fun `forms of one lemma that begin differently are not grouped by the lexicon`() {
-        val p = params(lexicon = SampleLexicon.lexicon)
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
         assertFalse(matches("abbiamo", "avendo", p))
         assertFalse(matches("essere", "sono", p))
         assertFalse("stato is a form of essere, sono too", matches("stato", "sono", p))
@@ -79,7 +99,7 @@ class WordMatchingTest {
 
     @Test
     fun `accents and mobile diphthongs do not change the beginning`() {
-        val p = params(lexicon = SampleLexicon.lexicon)
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
         assertTrue(matches("muore", "morire", p))
         assertTrue(matches("pu\u00f2", "potere", p))
         assertTrue("diphthong after a prefix", matches("riesco", "riuscire", p))
@@ -87,7 +107,7 @@ class WordMatchingTest {
 
     @Test
     fun `dovere and sapere are grouped even though they begin differently`() {
-        val p = params(lexicon = SampleLexicon.lexicon)
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
         assertTrue(matches("devo", "dovere", p))
         assertTrue(matches("seppe", "sapere", p))
     }
@@ -95,7 +115,7 @@ class WordMatchingTest {
     @Test
     fun `the beginning is checked by the lexicon rule only`() {
         // With a one-letter common prefix the pair matches again: that rule is untouched.
-        val p = params(minCommonPrefix = 1, lexicon = SampleLexicon.lexicon)
+        val p = params(minCommonPrefix = 1, lexicon = SampleLexicon.lexicon, useStemmer = false)
         assertTrue(matches("abbiamo", "avendo", p))
     }
 
