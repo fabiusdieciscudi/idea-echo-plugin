@@ -13,7 +13,7 @@ class MorphLexiconTest {
     @Test
     fun `reads form and lemma, ignoring the features column`() {
         val lexicon = SampleLexicon.lexicon
-        assertEquals(10, lexicon.size)
+        assertEquals(12, lexicon.size)
         assertTrue("andrà" in lexicon)
         assertTrue(lexicon.shareLemma("andrà", "andare"))
     }
