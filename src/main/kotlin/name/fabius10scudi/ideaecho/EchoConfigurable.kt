@@ -7,6 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
+import com.intellij.ui.TitledSeparator
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBList
@@ -145,19 +146,23 @@ class EchoConfigurable(private val project: Project) : Configurable {
             }
             .createPanel()
 
+        // Titled sections; the last one says which settings are shared by all projects.
         return FormBuilder.createFormBuilder()
+            .addComponent(TitledSeparator(EchoBundle.message("settings.section.file")))
             .addComponent(externalCheck)
             .addLabeledComponent(EchoBundle.message("settings.external.file"), externalPathField)
             .addComponent(externalRow)
-            .addSeparator()
+            .addComponent(TitledSeparator(EchoBundle.message("settings.section.analysis")))
             .addLabeledComponent(EchoBundle.message("settings.minWordLength"), minLengthCombo)
             .addLabeledComponent(EchoBundle.message("settings.windowSize"), windowSpinner)
             .addComponent(stemmerCheck)
             .addLabeledComponent(EchoBundle.message("settings.minCommonPrefix"), prefixSpinner)
+            .addComponent(TitledSeparator(EchoBundle.message("settings.section.latex")))
             .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredCommands"), commandsPanel)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.textArgument"), argumentPanel)
+            .addComponent(TitledSeparator(EchoBundle.message("settings.section.words")))
             .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredWords"), JBScrollPane(wordsArea))
-            .addSeparator()
+            .addComponent(TitledSeparator(EchoBundle.message("settings.section.dictionaries")))
             .addLabeledComponent(EchoBundle.message("settings.lexicon.file"), lexiconPathField)
             .addTooltip(EchoBundle.message("settings.lexicon.comment"))
             .addLabeledComponent(EchoBundle.message("settings.thesaurus.file"), thesaurusPathField)

@@ -203,7 +203,8 @@ first one.
 ## Settings
 
 `Settings → Tools → Idea Echo`. Everything here is stored **per project**, except the
-lexicon and thesaurus paths.
+lexicon and thesaurus paths. The page is divided into sections: *Configuration file*,
+*Analysis*, *LaTeX*, *Words*, and *Dictionaries*, the one shared by all projects.
 
 **Minimum word length** and **Look-back window** mirror the toolbar controls.
 
