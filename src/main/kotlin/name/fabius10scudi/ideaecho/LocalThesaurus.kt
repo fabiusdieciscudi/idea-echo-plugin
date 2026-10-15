@@ -37,16 +37,25 @@ class LocalThesaurus private constructor(private val sensesByWord: Map<String, L
      * lemmas in [lexicon] that is a headword. `bella` yields `bello`, `strinse` yields
      * `stringere`, and `era` yields both `essere` and `era` when the thesaurus has them.
      */
-    fun lookup(word: String, lexicon: MorphLexicon?): List<Entry> {
-        val key = word.lowercase()
-        val candidates = linkedSetOf(key)
-        lexicon?.lemmasOf(key)?.let { candidates += it }
-        return candidates.mapNotNull { headword ->
-            sensesByWord[headword]?.let { Entry(headword, it) }
-        }
-    }
+    fun lookup(word: String, lexicon: MorphLexicon?): List<Entry> = lookup(word, lexicon, listOf(this))
 
     companion object {
+        /**
+         * Like the instance [lookup], over several thesauri at once: a headword found in more
+         * than one gives a single entry, with the senses of the first thesaurus first. This is
+         * how a personal thesaurus is shown together with the LibreOffice one.
+         */
+        fun lookup(word: String, lexicon: MorphLexicon?, thesauri: List<LocalThesaurus>): List<Entry> {
+            val key = word.lowercase().trim()
+            val candidates = linkedSetOf(key)
+            lexicon?.lemmasOf(key)?.let { candidates += it }
+            return candidates.mapNotNull { headword ->
+                thesauri.flatMap { it.sensesByWord[headword].orEmpty() }
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { Entry(headword, it) }
+            }
+        }
+
         /** Reads a thesaurus file. Throws an exception when it cannot be read. */
         fun load(path: Path): LocalThesaurus = parse(Files.readAllBytes(path))
 

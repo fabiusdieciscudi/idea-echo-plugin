@@ -15,7 +15,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * IDE-wide preferences, shared by every project.
  *
- * Holds the locations of the Morph-it! lexicon and of the local thesaurus. The files are
+ * Holds the locations of the Morph-it! lexicon and of the local thesauri: the one from
+ * LibreOffice and a personal one, with the user's own substitutions. The files are
  * downloaded by the user and are not part of a manuscript, so they live here rather than
  * in the per-project settings or in the external YAML file. Light service: no plugin.xml
  * registration needed.
@@ -27,6 +28,7 @@ class EchoAppSettings : PersistentStateComponent<EchoAppSettings.State> {
     data class State(
         var lexiconPath: String = "",
         var thesaurusPath: String = "",
+        var personalThesaurusPath: String = "",
     )
 
     private var state = State()
@@ -47,6 +49,11 @@ class EchoAppSettings : PersistentStateComponent<EchoAppSettings.State> {
         get() = state.thesaurusPath
         set(value) { state.thesaurusPath = value.trim() }
 
+    /** Path of the personal MyThes file; blank when there is none. */
+    var personalThesaurusPath: String
+        get() = state.personalThesaurusPath
+        set(value) { state.personalThesaurusPath = value.trim() }
+
     private val lexicon = BackgroundFile("lexicon", "forms") { path ->
         MorphLexicon.load(path).let { it to it.size }
     }
@@ -55,14 +62,28 @@ class EchoAppSettings : PersistentStateComponent<EchoAppSettings.State> {
         LocalThesaurus.load(path).let { it to it.size }
     }
 
+    private val personalThesaurus = BackgroundFile("personal thesaurus", "headwords") { path ->
+        LocalThesaurus.load(path).let { it to it.size }
+    }
+
     /** The lexicon when it is in memory, else null (see [BackgroundFile.ifReady]). */
     fun lexiconIfReady(): MorphLexicon? = lexicon.ifReady(lexiconPath)
 
-    /** The local thesaurus when it is in memory, else null (see [BackgroundFile.ifReady]). */
-    fun thesaurusIfReady(): LocalThesaurus? = thesaurus.ifReady(thesaurusPath)
+    /** True when at least one local thesaurus file is configured. */
+    fun hasLocalThesaurus(): Boolean = thesaurusPath.isNotBlank() || personalThesaurusPath.isNotBlank()
 
-    /** True while the thesaurus file is configured but not read yet. */
-    fun thesaurusLoading(): Boolean = thesaurus.isLoading(thesaurusPath)
+    /**
+     * The local thesauri in memory, the personal one first, so that its entries come
+     * first (see [BackgroundFile.ifReady]); those still loading are left out.
+     */
+    fun thesauriIfReady(): List<LocalThesaurus> = listOfNotNull(
+        personalThesaurus.ifReady(personalThesaurusPath),
+        thesaurus.ifReady(thesaurusPath),
+    )
+
+    /** True while a configured thesaurus file is not read yet. */
+    fun thesaurusLoading(): Boolean =
+        personalThesaurus.isLoading(personalThesaurusPath) || thesaurus.isLoading(thesaurusPath)
 
     /**
      * A user-supplied data file, read on a pooled thread and kept in memory until the

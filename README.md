@@ -246,11 +246,12 @@ An invalid pattern is skipped rather than breaking the analysis.
 [The Morph-it! lexicon](#the-morph-it-lexicon)). Leave it blank to group words by stem
 and common beginning only.
 
-**Local thesaurus** is the path of the thesaurus file used by the *Local thesaurus*
-source of the tool window (see [The local thesaurus](#the-local-thesaurus)).
+**Local thesaurus** and **Personal thesaurus** are the paths of the thesaurus files used
+by the *Local thesaurus* source of the tool window (see
+[The local thesaurus](#the-local-thesaurus)).
 
-Unlike everything else on this page, these two paths are **shared by all projects**, and
-they are never written to the YAML file.
+Unlike everything else on this page, these paths are **shared by all projects**, and they
+are never written to the YAML file.
 
 The defaults for ignored commands and ignored words live in
 `src/main/resources/messages/EchoBundle.properties`, which means they follow the
@@ -385,6 +386,20 @@ file is configured, or if it cannot be read (the reason is then in the IDE log).
 The Italian thesaurus is released by LibreItalia under the GNU General Public License,
 version 3. As with the lexicon, the plugin only reads the file and does not distribute
 it.
+
+### A personal thesaurus
+
+A second file, set as **Personal thesaurus**, can hold your own substitutions: the ones
+you made revising a book, say. It uses the same MyThes format and is read the same way,
+and its entries appear on the same page as the LibreOffice ones, **before** them; a word
+found in both gets a single section, your senses first. Either file can be used alone.
+
+A personal thesaurus may contain expressions of several words as headwords
+(`a lungo`, `al posto di`). Look them up by typing them in the search box of the page;
+clicking a replacement then replaces the selection, so select the expression first.
+
+Give your senses a category that sets them apart, such as `(personale)`: it is shown
+before each line of replacements.
 
 ## LaTeX handling
 

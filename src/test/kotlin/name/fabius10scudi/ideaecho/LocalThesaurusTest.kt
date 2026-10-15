@@ -49,6 +49,18 @@ class LocalThesaurusTest {
     }
 
     @Test
+    fun `several thesauri are merged per headword, the first one first`() {
+        val personal = LocalThesaurus.read(
+            "UTF-8\ncasa|1\n(personale)|villetta\na lungo|1\n(personale)|per molto\n".toByteArray().inputStream()
+        )
+        val both = listOf(personal, thesaurus)
+        val entries = LocalThesaurus.lookup("casa", null, both)
+        assertEquals(listOf("casa"), entries.map { it.headword })
+        assertEquals(listOf("personale", "s.f.", "s.f."), entries.single().senses.map { it.category })
+        assertEquals(listOf("a lungo"), LocalThesaurus.lookup(" A lungo ", null, both).map { it.headword })
+    }
+
+    @Test
     fun `the encoding named on the first line is honoured`() {
         val text = "ISO8859-1\nperché|1\n(cong.)|poiché|siccome\n"
         val latin1 = LocalThesaurus.read(text.toByteArray(Charsets.ISO_8859_1).inputStream())

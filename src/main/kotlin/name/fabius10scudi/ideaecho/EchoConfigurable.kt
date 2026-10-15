@@ -59,6 +59,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     /** IDE-wide, stored in EchoAppSettings, never in the YAML file. */
     private val lexiconPathField = TextFieldWithBrowseButton()
     private val thesaurusPathField = TextFieldWithBrowseButton()
+    private val personalThesaurusPathField = TextFieldWithBrowseButton()
 
     private val externalCheck = JBCheckBox(EchoBundle.message("settings.external.checkbox"))
     private val externalPathField = TextFieldWithBrowseButton()
@@ -110,6 +111,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
             title = EchoBundle.message("settings.thesaurus.chooserTitle")
         }
         thesaurusPathField.addBrowseFolderListener(null, null, project, thesaurusDescriptor)
+        personalThesaurusPathField.addBrowseFolderListener(null, null, project, thesaurusDescriptor)
 
         externalCheck.addActionListener { updateEnablement() }
 
@@ -160,6 +162,8 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addTooltip(EchoBundle.message("settings.lexicon.comment"))
             .addLabeledComponent(EchoBundle.message("settings.thesaurus.file"), thesaurusPathField)
             .addTooltip(EchoBundle.message("settings.thesaurus.comment"))
+            .addLabeledComponent(EchoBundle.message("settings.personalThesaurus.file"), personalThesaurusPathField)
+            .addTooltip(EchoBundle.message("settings.personalThesaurus.comment"))
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -232,6 +236,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     override fun isModified(): Boolean =
         lexiconPathField.text.trim() != appSettings.lexiconPath ||
             thesaurusPathField.text.trim() != appSettings.thesaurusPath ||
+            personalThesaurusPathField.text.trim() != appSettings.personalThesaurusPath ||
             externalCheck.isSelected != settings.useExternalConfig ||
             externalPathField.text.trim() != settings.externalConfigPath ||
             formData() != settings.effective()
@@ -241,9 +246,11 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
         val lexiconPath = checkedDataFile(lexiconPathField, "message.lexiconNotFound")
         val thesaurusPath = checkedDataFile(thesaurusPathField, "message.thesaurusNotFound")
-        // Both are read on first use, in the background (see EchoAppSettings).
+        val personalThesaurusPath = checkedDataFile(personalThesaurusPathField, "message.thesaurusNotFound")
+        // All are read on first use, in the background (see EchoAppSettings).
         appSettings.lexiconPath = lexiconPath
         appSettings.thesaurusPath = thesaurusPath
+        appSettings.personalThesaurusPath = personalThesaurusPath
 
         val wasExternal = settings.useExternalConfig
         val nowExternal = externalCheck.isSelected
@@ -285,6 +292,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
     override fun reset() {
         lexiconPathField.text = appSettings.lexiconPath
         thesaurusPathField.text = appSettings.thesaurusPath
+        personalThesaurusPathField.text = appSettings.personalThesaurusPath
         externalCheck.isSelected = settings.useExternalConfig
         externalPathField.text = settings.externalConfigPath.ifBlank {
             project.basePath?.let { "$it/${EchoSettings.DEFAULT_FILE_NAME}" } ?: ""
