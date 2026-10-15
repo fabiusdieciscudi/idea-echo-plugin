@@ -22,9 +22,10 @@ data class Echo(
  * Entries without regex metacharacters are kept in a fast literal set; the rest
  * are compiled once. Invalid patterns are skipped rather than breaking analysis.
  *
- * [minCommonPrefix] is the number of leading letters two words must share to be
- * grouped even when their stems differ; 0 turns the rule off. [lexicon], when
- * present, groups forms that have a lemma in common.
+ * [useStemmer] groups words with the same Snowball stem. [minCommonPrefix] is the
+ * number of leading letters two words must share to be grouped even when their stems
+ * differ; 0 turns the rule off. [lexicon], when present, groups forms that have a
+ * lemma in common.
  */
 data class AnalyzerParams(
     val minWordLength: Int,
@@ -34,6 +35,7 @@ data class AnalyzerParams(
     val textArgument: Map<String, Int>,
     val minCommonPrefix: Int = 0,
     val lexicon: MorphLexicon? = null,
+    val useStemmer: Boolean = true,
 ) {
     private val ignoredLiterals: Set<String> =
         ignoredWords.filterNot { it.hasRegexMeta() }.map { it.lowercase() }.toSet()
@@ -58,7 +60,7 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 /**
  * Detects "nearby echoes": words repeated within a sliding window of the last
  * N words. Two words match when any of these holds (see [RepetitionAnalyzer.wordsMatch]):
- *  - they have the same Snowball Italian stem;
+ *  - they have the same Snowball Italian stem, unless [AnalyzerParams.useStemmer] is off;
  *  - the lexicon gives them a lemma in common;
  *  - they share at least [AnalyzerParams.minCommonPrefix] leading letters.
  *
@@ -207,7 +209,7 @@ object RepetitionAnalyzer {
     fun wordsMatch(w1: String, w2: String, params: AnalyzerParams): Boolean {
         if (w1 == w2) return true
         if (w1.startsWith('\\') || w2.startsWith('\\')) return false // commands: exact only
-        if (stem(w1) == stem(w2)) return true
+        if (params.useStemmer && stem(w1) == stem(w2)) return true
         if (params.lexicon?.shareLemma(w1, w2) == true) return true
         return params.minCommonPrefix > 0 && w1.commonPrefixWith(w2).length >= params.minCommonPrefix
     }

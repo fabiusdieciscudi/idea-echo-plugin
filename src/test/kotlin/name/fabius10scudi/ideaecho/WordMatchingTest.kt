@@ -8,7 +8,11 @@ import org.junit.Test
 /** The three grouping rules taken one at a time, and what the analyzer derives from them. */
 class WordMatchingTest {
 
-    private fun params(minCommonPrefix: Int = 0, lexicon: MorphLexicon? = null) = AnalyzerParams(
+    private fun params(
+        minCommonPrefix: Int = 0,
+        lexicon: MorphLexicon? = null,
+        useStemmer: Boolean = true,
+    ) = AnalyzerParams(
         minWordLength = 2,
         windowSize = 160,
         ignoredWords = emptySet(),
@@ -16,6 +20,7 @@ class WordMatchingTest {
         textArgument = emptyMap(),
         minCommonPrefix = minCommonPrefix,
         lexicon = lexicon,
+        useStemmer = useStemmer,
     )
 
     private fun matches(w1: String, w2: String, params: AnalyzerParams) =
@@ -25,6 +30,21 @@ class WordMatchingTest {
     fun `the stem alone groups regular inflections`() {
         assertTrue(matches("stessa", "stesse", params()))
         assertFalse(matches("bella", "bellezza", params()))
+    }
+
+    @Test
+    fun `the stemmer can be turned off`() {
+        // Same stem "cos", different words: the stemmer's typical false positive.
+        assertTrue(matches("cosa", "così", params()))
+        assertFalse(matches("cosa", "così", params(useStemmer = false)))
+    }
+
+    @Test
+    fun `without the stemmer the other rules still apply`() {
+        val p = params(minCommonPrefix = 4, lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertTrue("identical words", matches("casa", "casa", p))
+        assertTrue("same lemma", matches("offriva", "offerto", p))
+        assertTrue("common beginning", matches("stessa", "stesse", p))
     }
 
     @Test

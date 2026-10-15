@@ -80,6 +80,7 @@ holds:
 1. **Same stem.** Both reduce to the same **Snowball Italian stem**. This is what makes
    `sollecitare` / `sollecitò` and `porta` / `portare` group together, which is the
    intended behaviour: *"portare alla porta"* is a repetition worth catching.
+   This rule can be turned off (see [Settings](#settings)).
 2. **Same lemma.** The [Morph-it! lexicon](#the-morph-it-lexicon), if configured, lists a
    dictionary form they have in common. This catches irregular verbs and forms the
    stemmer cannot relate: `strinse` / `stringeva`, `offerto` / `offriva`, `poco` / `pochi`.
@@ -172,6 +173,12 @@ lexicon path.
 
 **Minimum word length** and **Look-back window** mirror the toolbar controls.
 
+**Group words with the same Snowball stem** turns the stem rule on or off; it is on by
+default. With the lexicon configured you may want it off: the stemmer cuts unrelated
+words down to the same root (`cosa` and `così`, `casa` and `caso`, `capo` and
+`capito`), while the lexicon knows they have different lemmas. Its only gain then is on
+forms the lexicon lacks, such as archaic or regional ones (`bevere`, `poté`).
+
 **Group words sharing the first letters** is the number of leading letters two words
 must have in common to be grouped even when their stems differ. The default is 4;
 raise it if unrelated words get grouped, set it to 0 to turn the rule off.
@@ -222,6 +229,7 @@ a path outside it is rejected when you press Apply.
 minWordLength: 4
 windowSize: 160
 minCommonPrefix: 4
+useStemmer: true
 ignoredCommands:
   - comment
   - note

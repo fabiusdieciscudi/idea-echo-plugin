@@ -11,6 +11,7 @@ data class EchoData(
     val minWordLength: Int,
     val windowSize: Int,
     val minCommonPrefix: Int,
+    val useStemmer: Boolean,
     val ignoredCommands: List<String>,
     val ignoredWords: List<String>,
     val textArgument: Map<String, Int>,
@@ -25,6 +26,7 @@ object EchoExternalConfig {
     private const val KEY_MIN_WORD_LENGTH = "minWordLength"
     private const val KEY_WINDOW_SIZE = "windowSize"
     private const val KEY_MIN_COMMON_PREFIX = "minCommonPrefix"
+    private const val KEY_USE_STEMMER = "useStemmer"
     private const val KEY_IGNORED_COMMANDS = "ignoredCommands"
     private const val KEY_IGNORED_WORDS = "ignoredWords"
     private const val KEY_TEXT_ARGUMENT = "textArgument"
@@ -54,6 +56,7 @@ object EchoExternalConfig {
                     ?: EchoSettings.DEFAULT_WINDOW_SIZE,
                 minCommonPrefix = (root[KEY_MIN_COMMON_PREFIX] as? Number)?.toInt()
                     ?: EchoSettings.DEFAULT_MIN_COMMON_PREFIX,
+                useStemmer = root[KEY_USE_STEMMER] as? Boolean ?: EchoSettings.DEFAULT_USE_STEMMER,
                 ignoredCommands = stringList(root[KEY_IGNORED_COMMANDS], EchoConfig.DEFAULT_IGNORED_COMMANDS),
                 ignoredWords = stringList(root[KEY_IGNORED_WORDS], EchoConfig.DEFAULT_IGNORED),
                 textArgument = intMap(root[KEY_TEXT_ARGUMENT], EchoConfig.DEFAULT_TEXT_ARGUMENT),
@@ -71,6 +74,7 @@ object EchoExternalConfig {
         root[KEY_MIN_WORD_LENGTH] = data.minWordLength
         root[KEY_WINDOW_SIZE] = data.windowSize
         root[KEY_MIN_COMMON_PREFIX] = data.minCommonPrefix
+        root[KEY_USE_STEMMER] = data.useStemmer
         root[KEY_IGNORED_COMMANDS] = data.ignoredCommands
         root[KEY_IGNORED_WORDS] = data.ignoredWords
         root[KEY_TEXT_ARGUMENT] = LinkedHashMap(data.textArgument)
