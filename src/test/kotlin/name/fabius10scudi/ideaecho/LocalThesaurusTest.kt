@@ -61,8 +61,35 @@ class LocalThesaurusTest {
         val html = ThesaurusHtml.entries("bella", entries, palette)
         assertTrue(html.contains("bello"))
         assertTrue(html.contains("bella"))
-        assertTrue(html.contains("a&lt;b, c&amp;d"))
+        assertTrue(html.contains(">a&lt;b</a>, <a"))
+        assertTrue(html.contains(">c&amp;d</a>"))
         assertFalse(html.contains("a<b"))
+    }
+
+    @Test
+    fun `every synonym is a link that carries the synonym`() {
+        val entries = listOf(LocalThesaurus.Entry("stringere", thesaurus.senses("stringere")))
+        val html = ThesaurusHtml.entries("strinse", entries, palette, pickScript = "send(w);")
+        assertTrue(html.contains("function pick(w){send(w);}"))
+        assertTrue(html.contains("data-word=\"tenere in pugno\""))
+        assertTrue(html.contains("href=\"pick:tenere+in+pugno\""))
+        assertEquals("tenere in pugno", ThesaurusHtml.pickedWord("pick:tenere+in+pugno"))
+    }
+
+    @Test
+    fun `without a script the links work through their href only`() {
+        val entries = listOf(LocalThesaurus.Entry("casa", thesaurus.senses("casa")))
+        val html = ThesaurusHtml.entries("casa", entries, palette)
+        assertFalse(html.contains("<script>"))
+        assertFalse(html.contains("onclick"))
+        assertTrue(html.contains("href=\"pick:dimora\""))
+    }
+
+    @Test
+    fun `other links are not picks`() {
+        assertEquals(null, ThesaurusHtml.pickedWord("https://example.org"))
+        assertEquals(null, ThesaurusHtml.pickedWord(null))
+        assertEquals("perché", ThesaurusHtml.pickedWord("pick:perch%C3%A9"))
     }
 
     @Test

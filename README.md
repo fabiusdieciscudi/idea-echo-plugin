@@ -174,6 +174,21 @@ the selected word is an inflected form, the [Morph-it! lexicon](#the-morph-it-le
 if configured, leads to the dictionary form: `strinse` shows the synonyms of
 `stringere`, `case` those of `casa`. Without the lexicon only dictionary forms are found.
 
+Every synonym on a *Local thesaurus* page can be clicked to **replace the echo**:
+
+- The occurrence replaced is the one **under the caret**. Moving the caret onto a
+  highlighted word opens its page, so the usual gesture is: click the echo in the
+  editor, then click the synonym.
+- After a replacement the caret stays at the start of the new word, and clicking
+  another synonym replaces it again: you can try several in a row.
+- If the page was opened from the table and the caret is elsewhere, nothing is replaced
+  and a hint asks you to put the caret on the occurrence you mean. Double-clicking the
+  row jumps to the first occurrence.
+- The capitalization of the original is kept (`Bella` → `Graziosa`, `BELLA` →
+  `GRAZIOSA`), but not its inflection: the thesaurus gives dictionary forms, so
+  replacing `bella` with `grazioso` leaves the agreement to you.
+- Each replacement is a single step of **Undo**.
+
 ## Settings
 
 `Settings → Tools → Idea Echo`. Everything here is stored **per project**, except the
