@@ -164,7 +164,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     /** The thesaurus server always stays in the IDE project store. */
     var thesaurusIndex: Int
         get() = state.thesaurusIndex
-        set(value) { state.thesaurusIndex = value.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex) }
+        set(value) { state.thesaurusIndex = value.coerceIn(0, EchoConfig.THESAURUS_SOURCES.lastIndex) }
 
     /**
      * Snapshot passed to the analyzer, so it never touches the settings service.
@@ -189,7 +189,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         minWordLength = minWordLength.coerceIn(MIN_WORD_LENGTH_MIN, MIN_WORD_LENGTH_MAX)
         windowSize = windowSize.coerceIn(WINDOW_MIN, WINDOW_MAX)
         minCommonPrefix = minCommonPrefix.coerceIn(COMMON_PREFIX_MIN, COMMON_PREFIX_MAX)
-        thesaurusIndex = thesaurusIndex.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex)
+        thesaurusIndex = thesaurusIndex.coerceIn(0, EchoConfig.THESAURUS_SOURCES.lastIndex)
         // A missing/empty section in the XML means "never configured": fall back to defaults.
         if (ignoredCommands.isEmpty()) ignoredCommands = EchoConfig.DEFAULT_IGNORED_COMMANDS.toMutableList()
         if (textArgument.isEmpty()) textArgument = EchoConfig.DEFAULT_TEXT_ARGUMENT.toMutableMap()

@@ -32,6 +32,10 @@ class MorphLexicon private constructor(
     /** True when [form] is in the lexicon. */
     operator fun contains(form: String): Boolean = key(form) in lemmasByForm
 
+    /** The lemmas of [form], in file order; empty when the form is unknown. */
+    fun lemmasOf(form: String): List<String> =
+        lemmasByForm[key(form)]?.map { lemmaNames[it] }.orEmpty()
+
     /** True when both forms are known and have at least one lemma in common. */
     fun shareLemma(form1: String, form2: String): Boolean {
         val l1 = lemmasByForm[key(form1)] ?: return false
