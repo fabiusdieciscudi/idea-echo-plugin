@@ -97,6 +97,13 @@ the file, so in that example all three end up in one group.
 The distance counter only advances on **accepted** words, so the numbers shown in
 the table are directly comparable with the look-back window you configured.
 
+The look-back window can be set **per word**, overriding the global one (see
+[Settings](#settings)). A larger window watches a rare, heavy word from farther away:
+`sguardo` may be worth catching 400 words apart. A smaller one lets a word that has to
+recur, like `disse` in a dialogue, do so without being flagged every time. For two
+occurrences, the window is that of the word that has a rule, or the larger of the two
+when both have one; with no rule the global window applies.
+
 ## The editor
 
 Highlighting is active **only while the tool window is visible**. Close or hide
@@ -208,6 +215,14 @@ lexicon and thesaurus paths. The page is divided into sections: *Configuration f
 
 **Minimum word length** and **Look-back window** mirror the toolbar controls.
 
+**Per-word window** is a table, editable in place, of words with their own look-back
+window, from 1 to 1000 words. Each word is a **regular expression matched against the
+whole word**, as in the ignored words, so `sguard[oi]` covers *sguardo* and *sguardi*.
+The order matters: the first row that matches wins, and the arrow buttons move a row.
+Apply rejects an invalid expression, a word given twice, or a window out of range. The
+colour fade of an echo is relative to the window that applies to it, so an echo of
+`sguardo` 300 words apart with a window of 400 is faint, not off the scale.
+
 **Group words with the same Snowball stem** turns the stem rule on or off; it is on by
 default. With the lexicon configured you may want it off: the stemmer cuts unrelated
 words down to the same root (`cosa` and `così`, `casa` and `caso`, `capo` and
@@ -281,7 +296,13 @@ ignoredWords:
   - dopo
 textArgument:
   chapterwithsummary: 3
+wordWindowSize:
+  disse: 20
+  sguard[oi]: 400
 ```
+
+The rules under `wordWindowSize` apply in the order written. A word starting with `[`
+must be quoted, as YAML would otherwise read it as a list.
 
 ### Behaviour
 

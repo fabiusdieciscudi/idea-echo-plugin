@@ -85,6 +85,19 @@ class EchoConfigurable(private val project: Project) : Configurable {
         preferredScrollableViewportSize = Dimension(-1, JBUI.scale(120))
     }
 
+    /** Per-word windows: the order of the rows matters, the first match wins. */
+    private val wordWindowModel = object : DefaultTableModel(arrayOf(
+        EchoBundle.message("settings.table.word"),
+        EchoBundle.message("settings.table.window"),
+    ), 0) {
+        override fun getColumnClass(columnIndex: Int): Class<*> =
+            if (columnIndex == 1) Integer::class.java else String::class.java
+    }
+    private val wordWindowTable = JBTable(wordWindowModel).apply {
+        selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        preferredScrollableViewportSize = Dimension(-1, JBUI.scale(120))
+    }
+
     private val wordsArea = JBTextArea(10, 40).apply {
         lineWrap = false
         border = JBUI.Borders.empty(4)
@@ -138,6 +151,23 @@ class EchoConfigurable(private val project: Project) : Configurable {
             }
             .createPanel()
 
+        val wordWindowPanel = ToolbarDecorator.createDecorator(wordWindowTable)
+            .setAddAction {
+                wordWindowTable.cellEditor?.stopCellEditing()
+                wordWindowModel.addRow(arrayOf<Any>("", windowSpinner.value as Int))
+                val row = wordWindowModel.rowCount - 1
+                wordWindowTable.setRowSelectionInterval(row, row)
+                wordWindowTable.editCellAt(row, 0)
+            }
+            .setRemoveAction {
+                wordWindowTable.cellEditor?.stopCellEditing()
+                val i = wordWindowTable.selectedRow
+                if (i >= 0) wordWindowModel.removeRow(wordWindowTable.convertRowIndexToModel(i))
+            }
+            .setMoveUpAction { moveWordWindowRow(-1) }
+            .setMoveDownAction { moveWordWindowRow(+1) }
+            .createPanel()
+
         val argumentPanel = ToolbarDecorator.createDecorator(argumentTable)
             .setAddAction { argumentModel.addRow(arrayOf<Any>("", 1)) }
             .setRemoveAction {
@@ -155,6 +185,8 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addComponent(TitledSeparator(EchoBundle.message("settings.section.analysis")))
             .addLabeledComponent(EchoBundle.message("settings.minWordLength"), minLengthCombo)
             .addLabeledComponent(EchoBundle.message("settings.windowSize"), windowSpinner)
+            .addLabeledComponentFillVertically(EchoBundle.message("settings.wordWindow"), wordWindowPanel)
+            .addTooltip(EchoBundle.message("settings.wordWindow.comment"))
             .addComponent(stemmerCheck)
             .addLabeledComponent(EchoBundle.message("settings.minCommonPrefix"), prefixSpinner)
             .addComponent(TitledSeparator(EchoBundle.message("settings.section.latex")))
@@ -207,7 +239,13 @@ class EchoConfigurable(private val project: Project) : Configurable {
     /** Internal mode only: overwrite the YAML file with the values shown in the form. */
     private fun exportToFile() {
         val path = validatedPath() ?: return
-        argumentTable.cellEditor?.stopCellEditing()
+        stopEditing()
+        try {
+            checkWordWindows()
+        } catch (e: ConfigurationException) {
+            Messages.showErrorDialog(project, e.message.orEmpty(), EchoBundle.message("settings.displayName"))
+            return
+        }
         if (EchoExternalConfig.save(path, formData())) {
             Messages.showInfoMessage(
                 project,
@@ -247,7 +285,8 @@ class EchoConfigurable(private val project: Project) : Configurable {
             formData() != settings.effective()
 
     override fun apply() {
-        argumentTable.cellEditor?.stopCellEditing()
+        stopEditing()
+        checkWordWindows()
 
         val lexiconPath = checkedDataFile(lexiconPathField, "message.lexiconNotFound")
         val thesaurusPath = checkedDataFile(thesaurusPathField, "message.thesaurusNotFound")
@@ -318,6 +357,9 @@ class EchoConfigurable(private val project: Project) : Configurable {
         argumentModel.rowCount = 0
         data.textArgument.forEach { (cmd, idx) -> argumentModel.addRow(arrayOf<Any>(cmd, idx)) }
 
+        wordWindowModel.rowCount = 0
+        data.wordWindowSize.forEach { (pattern, size) -> wordWindowModel.addRow(arrayOf<Any>(pattern, size)) }
+
         wordsArea.text = data.ignoredWords.joinToString("\n")
         wordsArea.caretPosition = 0
     }
@@ -331,6 +373,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
         ignoredCommands = currentCommands(),
         ignoredWords = currentWords(),
         textArgument = currentTextArgument(),
+        wordWindowSize = currentWordWindows(),
     )
 
     private fun askCommandName(title: String, initial: String): String? =
@@ -350,6 +393,58 @@ class EchoConfigurable(private val project: Project) : Configurable {
             if (name.isNotEmpty() && index >= 1) result[name] = index
         }
         return result
+    }
+
+    /** The rows of the per-word window table, without blank patterns, in their order. */
+    private fun currentWordWindows(): List<Pair<String, Int>> =
+        (0 until wordWindowModel.rowCount).mapNotNull { row ->
+            val pattern = (wordWindowModel.getValueAt(row, 0) as? String)?.trim().orEmpty()
+            val size = (wordWindowModel.getValueAt(row, 1) as? Number)?.toInt() ?: 0
+            if (pattern.isNotEmpty()) pattern to size else null
+        }
+
+    /**
+     * Rejects the per-word windows that would be silently dropped or changed when stored:
+     * an invalid pattern, a pattern given twice, a window out of range.
+     */
+    private fun checkWordWindows() {
+        val seen = HashSet<String>()
+        for ((pattern, size) in currentWordWindows()) {
+            if (runCatching { Regex(pattern) }.isFailure) {
+                throw ConfigurationException(EchoBundle.message("message.wordWindow.invalidPattern", pattern))
+            }
+            if (!seen.add(pattern)) {
+                throw ConfigurationException(EchoBundle.message("message.wordWindow.duplicate", pattern))
+            }
+            if (size !in EchoSettings.WORD_WINDOW_MIN..EchoSettings.WORD_WINDOW_MAX) {
+                throw ConfigurationException(
+                    EchoBundle.message(
+                        // As text: MessageFormat would write 1000 as "1,000" or "1.000".
+                        "message.wordWindow.range",
+                        pattern,
+                        EchoSettings.WORD_WINDOW_MIN.toString(),
+                        EchoSettings.WORD_WINDOW_MAX.toString(),
+                    )
+                )
+            }
+        }
+    }
+
+    /** Moves the selected per-word window row by [delta], keeping it selected. */
+    private fun moveWordWindowRow(delta: Int) {
+        wordWindowTable.cellEditor?.stopCellEditing()
+        val row = wordWindowTable.selectedRow.takeIf { it >= 0 }?.let { wordWindowTable.convertRowIndexToModel(it) }
+            ?: return
+        val target = row + delta
+        if (target !in 0 until wordWindowModel.rowCount) return
+        wordWindowModel.moveRow(row, row, target)
+        wordWindowTable.setRowSelectionInterval(target, target)
+    }
+
+    /** Commits any cell being edited, so that the tables hold what the user typed. */
+    private fun stopEditing() {
+        argumentTable.cellEditor?.stopCellEditing()
+        wordWindowTable.cellEditor?.stopCellEditing()
     }
 
     private fun currentWords(): List<String> =
