@@ -31,6 +31,12 @@ class ThesaurusView(parent: Disposable) : Disposable {
         Disposer.register(parent, this)
     }
 
+    /** Shows a page built locally, e.g. the entries of the local thesaurus. */
+    fun showHtml(html: String) {
+        val b = browser
+        if (b != null) b.loadHTML(html) else fallback.text = html
+    }
+
     fun showUrl(word: String, url: String) {
         val b = browser
         if (b != null) {

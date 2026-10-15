@@ -27,6 +27,7 @@ Morph-it! lexicon, by their dictionary form (`strinse` and `stringeva`).
 - [Settings](#settings)
 - [External YAML configuration](#external-yaml-configuration)
 - [The Morph-it! lexicon](#the-morph-it-lexicon)
+- [The local thesaurus](#the-local-thesaurus)
 - [LaTeX handling](#latex-handling)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
@@ -162,14 +163,21 @@ window is not an echo and is not counted.
 
 ### Thesaurus
 
-Below the table, a dropdown selects the synonyms/antonyms server, and the page for
+Below the table, a dropdown selects the synonyms/antonyms source, and the page for
 the currently selected word is rendered underneath. The choice is remembered per
 project.
+
+The sources are the online dictionaries, plus **Local thesaurus**, which reads a file on
+your computer instead (see [The local thesaurus](#the-local-thesaurus)). It works offline
+and lists the synonyms grouped by meaning, each meaning with its part of speech. When
+the selected word is an inflected form, the [Morph-it! lexicon](#the-morph-it-lexicon),
+if configured, leads to the dictionary form: `strinse` shows the synonyms of
+`stringere`, `case` those of `casa`. Without the lexicon only dictionary forms are found.
 
 ## Settings
 
 `Settings → Tools → Idea Echo`. Everything here is stored **per project**, except the
-lexicon path.
+lexicon and thesaurus paths.
 
 **Minimum word length** and **Look-back window** mirror the toolbar controls.
 
@@ -209,9 +217,14 @@ match must span the entire word, `quell[aeio]` will never swallow `quellissimo`.
 An invalid pattern is skipped rather than breaking the analysis.
 
 **Morph-it! lexicon** is the path of the lexicon file (see
-[The Morph-it! lexicon](#the-morph-it-lexicon)). Unlike everything else on this page it
-is **shared by all projects**, and it is never written to the YAML file. Leave it blank
-to group words by stem and common beginning only.
+[The Morph-it! lexicon](#the-morph-it-lexicon)). Leave it blank to group words by stem
+and common beginning only.
+
+**Local thesaurus** is the path of the thesaurus file used by the *Local thesaurus*
+source of the tool window (see [The local thesaurus](#the-local-thesaurus)).
+
+Unlike everything else on this page, these two paths are **shared by all projects**, and
+they are never written to the YAML file.
 
 The defaults for ignored commands and ignored words live in
 `src/main/resources/messages/EchoBundle.properties`, which means they follow the
@@ -291,7 +304,7 @@ it once and tell the plugin where it is.
    point to a readable file is rejected.
 4. Check that it was read: `Help → Show Log in Finder/Explorer/Files` opens the IDE
    log, which should contain a line like
-   `Idea Echo: 404710 forms read from …/morph-it_048.txt`.
+   `Idea Echo: 404710 forms read from the lexicon …/morph-it_048.txt`.
 
 To stop using the lexicon, clear the field and press **Apply**. To update it, replace
 the file or select the new one; a changed file is read again automatically.
@@ -314,6 +327,38 @@ goes on without it.
 Morph-it! is dual-licensed under the Creative Commons Attribution-ShareAlike 2.0 License
 and the GNU Lesser General Public License. The plugin itself remains under the MIT
 License, since it neither contains nor redistributes the lexicon.
+
+## The local thesaurus
+
+The *Local thesaurus* source of the tool window reads the Italian thesaurus of
+LibreOffice, `th_it_IT_v2.dat`: about 26,000 headwords, each with its synonyms grouped
+by meaning, expressions of several words included. It contains synonyms only, no
+antonyms, and only dictionary forms, which is why the lexicon helps.
+
+### Installing it
+
+You may already have the file:
+
+- on Linux, the `mythes-it` package installs it, usually in `/usr/share/mythes/`;
+- LibreOffice ships it in its Italian dictionary extension.
+
+Otherwise, take it from the `it_IT` folder of the
+[LibreOffice dictionaries repository](https://github.com/LibreOffice/dictionaries/tree/master/it_IT):
+`th_it_IT_v2.dat` is the only file needed. Then, in `Settings → Tools → Idea Echo`,
+select it as **Local thesaurus**, press **Apply**, and choose *Local thesaurus* in the
+dropdown of the tool window.
+
+Any thesaurus in the same MyThes format works: the first line names the encoding, then
+each entry is a line `headword|count` followed by `count` lines
+`(part of speech)|synonym|synonym|…`.
+
+The file is read in the background on first use, like the lexicon: it takes a fraction of
+a second and about 16 MB of heap. The page shows a short message while it loads, if no
+file is configured, or if it cannot be read (the reason is then in the IDE log).
+
+The Italian thesaurus is released by LibreItalia under the GNU General Public License,
+version 3. As with the lexicon, the plugin only reads the file and does not distribute
+it.
 
 ## LaTeX handling
 

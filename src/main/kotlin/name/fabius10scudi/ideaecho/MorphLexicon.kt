@@ -21,13 +21,20 @@ import java.nio.file.Path
  * Lemmas are interned as integer ids, so the half million Morph-it forms cost one small
  * array each rather than one string per lemma.
  */
-class MorphLexicon private constructor(private val lemmasByForm: Map<String, IntArray>) {
+class MorphLexicon private constructor(
+    private val lemmasByForm: Map<String, IntArray>,
+    private val lemmaNames: Array<String>,
+) {
 
     /** Number of distinct forms. */
     val size: Int get() = lemmasByForm.size
 
     /** True when [form] is in the lexicon. */
     operator fun contains(form: String): Boolean = form.lowercase() in lemmasByForm
+
+    /** The lemmas of [form], in file order; empty when the form is unknown. */
+    fun lemmasOf(form: String): List<String> =
+        lemmasByForm[form.lowercase()]?.map { lemmaNames[it] }.orEmpty()
 
     /** True when both forms are known and have at least one lemma in common. */
     fun shareLemma(form1: String, form2: String): Boolean {
@@ -79,7 +86,9 @@ class MorphLexicon private constructor(private val lemmasByForm: Map<String, Int
                     lemmasByForm[form] = known + id
                 }
             }
-            return MorphLexicon(lemmasByForm)
+            val names = arrayOfNulls<String>(lemmaIds.size)
+            for ((lemma, id) in lemmaIds) names[id] = lemma
+            return MorphLexicon(lemmasByForm, names.requireNoNulls())
         }
     }
 }

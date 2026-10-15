@@ -15,6 +15,7 @@ import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBUI
+import org.jetbrains.annotations.PropertyKey
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.nio.file.Files
@@ -57,6 +58,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
     /** IDE-wide, stored in EchoAppSettings, never in the YAML file. */
     private val lexiconPathField = TextFieldWithBrowseButton()
+    private val thesaurusPathField = TextFieldWithBrowseButton()
 
     private val externalCheck = JBCheckBox(EchoBundle.message("settings.external.checkbox"))
     private val externalPathField = TextFieldWithBrowseButton()
@@ -104,6 +106,10 @@ class EchoConfigurable(private val project: Project) : Configurable {
             title = EchoBundle.message("settings.lexicon.chooserTitle")
         }
         lexiconPathField.addBrowseFolderListener(null, null, project, lexiconDescriptor)
+        val thesaurusDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor().apply {
+            title = EchoBundle.message("settings.thesaurus.chooserTitle")
+        }
+        thesaurusPathField.addBrowseFolderListener(null, null, project, thesaurusDescriptor)
 
         externalCheck.addActionListener { updateEnablement() }
 
@@ -152,6 +158,8 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addSeparator()
             .addLabeledComponent(EchoBundle.message("settings.lexicon.file"), lexiconPathField)
             .addTooltip(EchoBundle.message("settings.lexicon.comment"))
+            .addLabeledComponent(EchoBundle.message("settings.thesaurus.file"), thesaurusPathField)
+            .addTooltip(EchoBundle.message("settings.thesaurus.comment"))
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
@@ -223,6 +231,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
 
     override fun isModified(): Boolean =
         lexiconPathField.text.trim() != appSettings.lexiconPath ||
+            thesaurusPathField.text.trim() != appSettings.thesaurusPath ||
             externalCheck.isSelected != settings.useExternalConfig ||
             externalPathField.text.trim() != settings.externalConfigPath ||
             formData() != settings.effective()
@@ -230,14 +239,11 @@ class EchoConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         argumentTable.cellEditor?.stopCellEditing()
 
-        val lexiconPath = lexiconPathField.text.trim()
-        val lexiconReadable = runCatching { Paths.get(lexiconPath) }.getOrNull()
-            ?.let { Files.isRegularFile(it) && Files.isReadable(it) } == true
-        if (lexiconPath.isNotEmpty() && !lexiconReadable) {
-            throw ConfigurationException(EchoBundle.message("message.lexiconNotFound", lexiconPath))
-        }
-        // Read on first use, in the background (see EchoAppSettings.lexiconIfReady).
+        val lexiconPath = checkedDataFile(lexiconPathField, "message.lexiconNotFound")
+        val thesaurusPath = checkedDataFile(thesaurusPathField, "message.thesaurusNotFound")
+        // Both are read on first use, in the background (see EchoAppSettings).
         appSettings.lexiconPath = lexiconPath
+        appSettings.thesaurusPath = thesaurusPath
 
         val wasExternal = settings.useExternalConfig
         val nowExternal = externalCheck.isSelected
@@ -264,8 +270,21 @@ class EchoConfigurable(private val project: Project) : Configurable {
         EchoSettingsNotifier.settingsChanged(project)
     }
 
+    /** The trimmed path in [field]: blank, or a readable file; otherwise Apply fails. */
+    private fun checkedDataFile(
+        field: TextFieldWithBrowseButton,
+        @PropertyKey(resourceBundle = "messages.EchoBundle") errorKey: String,
+    ): String {
+        val path = field.text.trim()
+        val readable = runCatching { Paths.get(path) }.getOrNull()
+            ?.let { Files.isRegularFile(it) && Files.isReadable(it) } == true
+        if (path.isNotEmpty() && !readable) throw ConfigurationException(EchoBundle.message(errorKey, path))
+        return path
+    }
+
     override fun reset() {
         lexiconPathField.text = appSettings.lexiconPath
+        thesaurusPathField.text = appSettings.thesaurusPath
         externalCheck.isSelected = settings.useExternalConfig
         externalPathField.text = settings.externalConfigPath.ifBlank {
             project.basePath?.let { "$it/${EchoSettings.DEFAULT_FILE_NAME}" } ?: ""

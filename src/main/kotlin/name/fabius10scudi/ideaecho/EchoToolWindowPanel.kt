@@ -28,12 +28,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener
+import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Font
@@ -102,7 +104,7 @@ class EchoToolWindowPanel(private val project: Project) :
             EchoSettings.WINDOW_STEP,
         )
     )
-    private val thesaurusCombo = ComboBox(EchoConfig.THESAURUS_SERVERS.toTypedArray())
+    private val thesaurusCombo = ComboBox(EchoConfig.THESAURUS_SOURCES.toTypedArray())
     private var syncingControls = false
 
     /** True while the table selection is being driven by the caret, not by the user. */
@@ -111,6 +113,9 @@ class EchoToolWindowPanel(private val project: Project) :
     private val thesaurus = ThesaurusView(this)
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val collator = Collator.getInstance(Locale.ITALIAN)
+
+    /** The word last shown in the thesaurus view, to show it again once the local file is read. */
+    private var thesaurusWord: String? = null
 
     private var rows: List<EchoRow> = emptyList()
     private var rowByKey: Map<String, EchoRow> = emptyMap()
@@ -194,6 +199,10 @@ class EchoToolWindowPanel(private val project: Project) :
         connection.subscribe(EchoSettingsNotifier.TOPIC, EchoSettingsListener {
             syncControlsFromSettings()
             resetAll()
+            // The local thesaurus may just have been read: replace the "loading" page.
+            if (currentThesaurusSource() == EchoConfig.LocalThesaurusSource) {
+                thesaurusWord?.let { showThesaurus(it) }
+            }
         })
 
         // The panel is created when the tool window is first shown -> start active.
@@ -296,9 +305,41 @@ class EchoToolWindowPanel(private val project: Project) :
         DaemonCodeAnalyzer.getInstance(project).restart()
     }
 
+    private fun currentThesaurusSource(): EchoConfig.ThesaurusSource =
+        EchoConfig.THESAURUS_SOURCES[settings.thesaurusIndex]
+
     private fun showThesaurus(word: String) {
-        val server = EchoConfig.THESAURUS_SERVERS[settings.thesaurusIndex]
-        thesaurus.showUrl(word, server.urlFor(word))
+        thesaurusWord = word
+        when (val source = currentThesaurusSource()) {
+            is EchoConfig.ThesaurusServer -> thesaurus.showUrl(word, source.urlFor(word))
+            EchoConfig.LocalThesaurusSource -> thesaurus.showHtml(localThesaurusPage(word))
+        }
+    }
+
+    /** The page for [word] from the local thesaurus, or a message saying why there is none. */
+    private fun localThesaurusPage(word: String): String {
+        val palette = ThesaurusHtml.Palette(
+            background = "#" + ColorUtil.toHex(UIUtil.getPanelBackground()),
+            foreground = "#" + ColorUtil.toHex(UIUtil.getLabelForeground()),
+            secondary = "#" + ColorUtil.toHex(JBUI.CurrentTheme.ContextHelp.FOREGROUND),
+        )
+        val app = EchoAppSettings.getInstance()
+        if (app.thesaurusPath.isBlank()) {
+            return ThesaurusHtml.message(EchoBundle.message("thesaurus.local.notConfigured"), palette)
+        }
+        val local = app.thesaurusIfReady()
+            ?: return ThesaurusHtml.message(
+                EchoBundle.message(
+                    if (app.thesaurusLoading()) "thesaurus.local.loading" else "thesaurus.local.unreadable"
+                ),
+                palette,
+            )
+        val entries = local.lookup(word, app.lexiconIfReady())
+        return if (entries.isEmpty()) {
+            ThesaurusHtml.message(EchoBundle.message("thesaurus.local.notFound", word), palette)
+        } else {
+            ThesaurusHtml.entries(word, entries, palette)
+        }
     }
 
     private fun scheduleRefresh() {

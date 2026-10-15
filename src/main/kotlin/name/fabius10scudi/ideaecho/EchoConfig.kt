@@ -6,6 +6,17 @@ object EchoConfig {
 //    /** Vowels (accented included) for the "except final vowel" match. */
 //    const val VOWELS = "aeiouàèéìíòóùú"
 
+    /** Where the thesaurus view takes synonyms from: a web page, or the local file. */
+    sealed interface ThesaurusSource {
+        val label: String
+    }
+
+    /** The MyThes file configured in the IDE-wide settings (see EchoAppSettings). */
+    object LocalThesaurusSource : ThesaurusSource {
+        override val label: String get() = EchoBundle.message("thesaurus.local")
+        override fun toString(): String = label   // shown in the combo box
+    }
+
     /**
      * A thesaurus REST endpoint.
      *
@@ -15,7 +26,7 @@ object EchoConfig {
      *  - %3  its first letter, upper-cased.
      * The legacy single-placeholder %s is still accepted and means the word.
      */
-    data class ThesaurusServer(val label: String, val urlTemplate: String) {
+    data class ThesaurusServer(override val label: String, val urlTemplate: String) : ThesaurusSource {
         override fun toString(): String = label   // shown in the combo box
 
         /** Builds the URL for [word], filling the placeholders (each URL-encoded). */
@@ -49,6 +60,12 @@ object EchoConfig {
         ThesaurusServer("Virgilio (it)", "https://sapere.virgilio.it/parole/sinonimi-e-contrari/%1"),
         ThesaurusServer("Ogma (it)", "https://ogma.lazza.dk/cerca/?q=%1"),
     )
+
+    /**
+     * Every choice of the thesaurus combo box. The local thesaurus comes last, so the
+     * indices already stored in the project settings keep pointing at the same server.
+     */
+    val THESAURUS_SOURCES: List<ThesaurusSource> = THESAURUS_SERVERS + LocalThesaurusSource
 
     /**
      * LaTeX commands whose argument (and the command itself) must be fully ignored.
