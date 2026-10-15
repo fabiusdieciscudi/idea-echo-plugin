@@ -23,6 +23,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     data class State(
         var minWordLength: Int = DEFAULT_MIN_WORD_LENGTH,
         var windowSize: Int = DEFAULT_WINDOW_SIZE,
+        var minCommonPrefix: Int = DEFAULT_MIN_COMMON_PREFIX,
         var thesaurusIndex: Int = 0,
         var ignoredCommands: MutableList<String> = EchoConfig.DEFAULT_IGNORED_COMMANDS.toMutableList(),
         var textArgument: MutableMap<String, Int> = EchoConfig.DEFAULT_TEXT_ARGUMENT.toMutableMap(),
@@ -100,6 +101,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     fun internalData(): EchoData = EchoData(
         minWordLength = state.minWordLength,
         windowSize = state.windowSize,
+        minCommonPrefix = state.minCommonPrefix,
         ignoredCommands = state.ignoredCommands,
         ignoredWords = state.ignoredWords,
         textArgument = state.textArgument,
@@ -110,6 +112,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         val clean = data.sanitized()
         state.minWordLength = clean.minWordLength
         state.windowSize = clean.windowSize
+        state.minCommonPrefix = clean.minCommonPrefix
         state.ignoredCommands = clean.ignoredCommands.toMutableList()
         state.ignoredWords = clean.ignoredWords.toMutableList()
         state.textArgument = clean.textArgument.toMutableMap()
@@ -118,6 +121,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     private fun EchoData.sanitized() = EchoData(
         minWordLength = minWordLength.coerceIn(MIN_WORD_LENGTH_MIN, MIN_WORD_LENGTH_MAX),
         windowSize = windowSize.coerceIn(WINDOW_MIN, WINDOW_MAX),
+        minCommonPrefix = minCommonPrefix.coerceIn(COMMON_PREFIX_MIN, COMMON_PREFIX_MAX),
         ignoredCommands = ignoredCommands.map { it.trim() }.filter { it.isNotEmpty() },
         ignoredWords = ignoredWords.map { it.trim() }.filter { it.isNotEmpty() },
         textArgument = textArgument.filter { it.key.isNotBlank() && it.value >= 1 },
@@ -132,6 +136,10 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     var windowSize: Int
         get() = effective().windowSize
         set(value) { updateEffective(effective().copy(windowSize = value)) }
+
+    var minCommonPrefix: Int
+        get() = effective().minCommonPrefix
+        set(value) { updateEffective(effective().copy(minCommonPrefix = value)) }
 
     var ignoredCommands: List<String>
         get() = effective().ignoredCommands
@@ -150,7 +158,11 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         get() = state.thesaurusIndex
         set(value) { state.thesaurusIndex = value.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex) }
 
-    /** Snapshot passed to the analyzer, so it never touches the settings service. */
+    /**
+     * Snapshot passed to the analyzer, so it never touches the settings service.
+     * The lexicon is an IDE-wide preference (see [EchoAppSettings]); while it is still
+     * loading it is left out, and the analysis is repeated once it is ready.
+     */
     fun toParams(): AnalyzerParams {
         val data = effective()
         return AnalyzerParams(
@@ -159,12 +171,15 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
             ignoredWords = data.ignoredWords.toSet(),
             ignoredCommands = data.ignoredCommands.toSet(),
             textArgument = data.textArgument,
+            minCommonPrefix = data.minCommonPrefix,
+            lexicon = EchoAppSettings.getInstance().lexiconIfReady(),
         )
     }
 
     private fun State.clamp() {
         minWordLength = minWordLength.coerceIn(MIN_WORD_LENGTH_MIN, MIN_WORD_LENGTH_MAX)
         windowSize = windowSize.coerceIn(WINDOW_MIN, WINDOW_MAX)
+        minCommonPrefix = minCommonPrefix.coerceIn(COMMON_PREFIX_MIN, COMMON_PREFIX_MAX)
         thesaurusIndex = thesaurusIndex.coerceIn(0, EchoConfig.THESAURUS_SERVERS.lastIndex)
         // A missing/empty section in the XML means "never configured": fall back to defaults.
         if (ignoredCommands.isEmpty()) ignoredCommands = EchoConfig.DEFAULT_IGNORED_COMMANDS.toMutableList()
@@ -183,6 +198,11 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
 
         // NB: 150 is not a multiple of WINDOW_STEP, so the default is 160.
         const val DEFAULT_WINDOW_SIZE = 160
+
+        /** Leading letters two words must share to be grouped; 0 turns the rule off. */
+        const val COMMON_PREFIX_MIN = 0
+        const val COMMON_PREFIX_MAX = 12
+        const val DEFAULT_MIN_COMMON_PREFIX = 4
 
         const val DEFAULT_FILE_NAME = "ideaEcho.yaml"
 
