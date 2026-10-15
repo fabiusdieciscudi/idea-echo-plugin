@@ -11,8 +11,9 @@ data class Echo(
     val sameSentence: Boolean, // has a twin inside the same sentence -> painted red
     val wordIndex: Int,        // progressive index among *accepted* words (matches the window)
     val sentenceId: Int,       // sentence number, 0-based
-    val minGap: Int,           // words to the nearest twin (1..windowSize)
+    val minGap: Int,           // words to the nearest twin (1..window)
     val group: String,         // key shared by every occurrence of the same word group
+    val window: Int,           // look-back window of the pair that gave minGap, for the fade
 )
 
 /**
@@ -26,6 +27,10 @@ data class Echo(
  * number of leading letters two words must share to be grouped even when their stems
  * differ; 0 turns the rule off. [lexicon], when present, groups forms that have a
  * lemma in common.
+ *
+ * [wordWindowSize] overrides [windowSize] for single words: each rule is a regular
+ * expression matched against the whole word, as in [ignoredWords], with its own
+ * window; the first rule that matches wins. See [pairWindow] for how it applies.
  */
 data class AnalyzerParams(
     val minWordLength: Int,
@@ -36,7 +41,32 @@ data class AnalyzerParams(
     val minCommonPrefix: Int = 0,
     val lexicon: MorphLexicon? = null,
     val useStemmer: Boolean = true,
+    val wordWindowSize: List<Pair<String, Int>> = emptyList(),
 ) {
+    private val windowRules: List<Pair<Regex, Int>> =
+        wordWindowSize.mapNotNull { (pattern, size) ->
+            runCatching { Regex(pattern, RegexOption.IGNORE_CASE) }.getOrNull()?.let { it to size }
+        }
+
+    // A rule is looked up once per word, not once per pair.
+    private val overrides = ConcurrentHashMap<String, Int>()
+
+    /** The window of the first rule matching [word], or null when no rule does. */
+    fun windowOverride(word: String): Int? =
+        overrides.getOrPut(word) { windowRules.firstOrNull { it.first.matches(word) }?.second ?: NO_RULE }
+            .takeIf { it != NO_RULE }
+
+    /**
+     * The look-back window for two occurrences: the window of the word that has a rule,
+     * the larger one when both have, [windowSize] when neither has. An echo is heard as
+     * soon as one of the two words asks to be watched from farther away.
+     */
+    fun pairWindow(w1: String, w2: String): Int =
+        listOfNotNull(windowOverride(w1), windowOverride(w2)).maxOrNull() ?: windowSize
+
+    /** How many accepted words the analyzer must remember: the largest window in use. */
+    val maxWindow: Int = maxOf(windowSize, windowRules.maxOfOrNull { it.second } ?: 0)
+
     private val ignoredLiterals: Set<String> =
         ignoredWords.filterNot { it.hasRegexMeta() }.map { it.lowercase() }.toSet()
 
@@ -50,6 +80,7 @@ data class AnalyzerParams(
         word in ignoredLiterals || ignoredPatterns.any { it.matches(word) }
 
     private companion object {
+        private const val NO_RULE = -1
         private val REGEX_META: Set<Char> = "\\[]{}()*+?.^\$|".toSet()
         private fun String.hasRegexMeta(): Boolean = any { it in REGEX_META }
     }
@@ -88,7 +119,7 @@ object RepetitionAnalyzer {
     )
 
     /** What is known about a marked occurrence, from all the pairs it took part in. */
-    private class Mark(var minGap: Int, var sameSentence: Boolean)
+    private class Mark(var minGap: Int, var window: Int, var sameSentence: Boolean)
 
     // italianStemmer keeps mutable state -> one instance per thread.
     private val stemmer = ThreadLocal.withInitial { italianStemmer() }
@@ -122,19 +153,24 @@ object RepetitionAnalyzer {
                 wordCounter++
 
                 for (prev in window) {
-                    if (!wordsMatch(prev.word, word, params)) continue
                     val gap = current.wordIndex - prev.wordIndex
+                    val limit = params.pairWindow(prev.word, word)
+                    if (gap > limit || !wordsMatch(prev.word, word, params)) continue
                     val sameSentence = prev.sentenceId == current.sentenceId
                     for (occ in listOf(prev, current)) {
-                        val mark = marks.getOrPut(occ) { Mark(gap, false) }
-                        mark.minGap = minOf(mark.minGap, gap)
+                        val mark = marks.getOrPut(occ) { Mark(gap, limit, false) }
+                        if (gap < mark.minGap) {
+                            mark.minGap = gap
+                            mark.window = limit
+                        }
                         if (sameSentence) mark.sameSentence = true
                     }
                     groups.union(prev.word, word)
                 }
 
                 window.addLast(current)
-                if (window.size > params.windowSize) window.removeFirst()
+                // Remember as far back as the largest window; each pair applies its own.
+                if (window.size > params.maxWindow) window.removeFirst()
             }
             sentenceId++
         }
@@ -147,8 +183,9 @@ object RepetitionAnalyzer {
                 sameSentence = mark.sameSentence,
                 wordIndex = occ.wordIndex,
                 sentenceId = occ.sentenceId,
-                minGap = mark.minGap.coerceIn(1, params.windowSize),
+                minGap = mark.minGap.coerceIn(1, mark.window),
                 group = groups.keyOf(occ.word),
+                window = mark.window,
             )
         }.sortedBy { it.startOffset }
     }

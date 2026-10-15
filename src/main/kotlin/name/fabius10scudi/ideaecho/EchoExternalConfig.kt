@@ -15,6 +15,8 @@ data class EchoData(
     val ignoredCommands: List<String>,
     val ignoredWords: List<String>,
     val textArgument: Map<String, Int>,
+    /** Per-word windows: (pattern, window) in the order they apply, the first match winning. */
+    val wordWindowSize: List<Pair<String, Int>> = emptyList(),
 )
 
 /**
@@ -30,6 +32,7 @@ object EchoExternalConfig {
     private const val KEY_IGNORED_COMMANDS = "ignoredCommands"
     private const val KEY_IGNORED_WORDS = "ignoredWords"
     private const val KEY_TEXT_ARGUMENT = "textArgument"
+    private const val KEY_WORD_WINDOW_SIZE = "wordWindowSize"
 
     private fun yaml(): Yaml {
         val options = DumperOptions().apply {
@@ -60,6 +63,7 @@ object EchoExternalConfig {
                 ignoredCommands = stringList(root[KEY_IGNORED_COMMANDS], EchoConfig.DEFAULT_IGNORED_COMMANDS),
                 ignoredWords = stringList(root[KEY_IGNORED_WORDS], EchoConfig.DEFAULT_IGNORED),
                 textArgument = intMap(root[KEY_TEXT_ARGUMENT], EchoConfig.DEFAULT_TEXT_ARGUMENT),
+                wordWindowSize = orderedIntMap(root[KEY_WORD_WINDOW_SIZE]),
             )
         } catch (t: Throwable) {
             thisLogger().warn("Cannot read Echo config: $path", t)
@@ -78,6 +82,9 @@ object EchoExternalConfig {
         root[KEY_IGNORED_COMMANDS] = data.ignoredCommands
         root[KEY_IGNORED_WORDS] = data.ignoredWords
         root[KEY_TEXT_ARGUMENT] = LinkedHashMap(data.textArgument)
+        if (data.wordWindowSize.isNotEmpty()) {
+            root[KEY_WORD_WINDOW_SIZE] = data.wordWindowSize.toMap(LinkedHashMap())
+        }
         Files.newBufferedWriter(path).use { yaml().dump(root, it) }
         true
     } catch (t: Throwable) {
@@ -89,6 +96,14 @@ object EchoExternalConfig {
         val list = (value as? List<*>)?.mapNotNull { it?.toString()?.trim() }?.filter { it.isNotEmpty() }
         return if (list.isNullOrEmpty()) fallback else list
     }
+
+    /** A mapping of strings to numbers, in file order; empty when missing or malformed. */
+    private fun orderedIntMap(value: Any?): List<Pair<String, Int>> =
+        (value as? Map<*, *>)?.mapNotNull { (k, v) ->
+            val key = k?.toString()?.trim().orEmpty()
+            val number = (v as? Number)?.toInt()
+            if (key.isNotEmpty() && number != null) key to number else null
+        }.orEmpty()
 
     private fun intMap(value: Any?, fallback: Map<String, Int>): Map<String, Int> {
         val map = (value as? Map<*, *>)?.mapNotNull { (k, v) ->

@@ -16,6 +16,9 @@ import java.nio.file.Paths
  * write the *effective* configuration, so callers never care which one is active.
  * Turning the external option off restores the untouched internal values.
  */
+/** A per-word window rule as stored in the IDE project file (a bean, for the serializer). */
+data class WordWindowRule(var pattern: String = "", var window: Int = 0)
+
 @Service(Service.Level.PROJECT)
 @State(name = "EchoSettings", storages = [Storage("ideaEcho.xml")])
 class EchoSettings(private val project: Project) : PersistentStateComponent<EchoSettings.State> {
@@ -28,6 +31,8 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         var thesaurusIndex: Int = 0,
         var ignoredCommands: MutableList<String> = EchoConfig.DEFAULT_IGNORED_COMMANDS.toMutableList(),
         var textArgument: MutableMap<String, Int> = EchoConfig.DEFAULT_TEXT_ARGUMENT.toMutableMap(),
+        // A list, not a map: the order of the rules matters, and stored maps are sorted.
+        var wordWindowSize: MutableList<WordWindowRule> = mutableListOf(),
         var ignoredWords: MutableList<String> = EchoConfig.DEFAULT_IGNORED.toMutableList(),
         var useExternalConfig: Boolean = false,
         var externalConfigPath: String = "",
@@ -107,6 +112,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         ignoredCommands = state.ignoredCommands,
         ignoredWords = state.ignoredWords,
         textArgument = state.textArgument,
+        wordWindowSize = state.wordWindowSize.map { it.pattern to it.window },
     )
 
     /** Copies [data] into the internal project store (used by the Import button). */
@@ -119,6 +125,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         state.ignoredCommands = clean.ignoredCommands.toMutableList()
         state.ignoredWords = clean.ignoredWords.toMutableList()
         state.textArgument = clean.textArgument.toMutableMap()
+        state.wordWindowSize = clean.wordWindowSize.map { (p, w) -> WordWindowRule(p, w) }.toMutableList()
     }
 
     private fun EchoData.sanitized() = EchoData(
@@ -129,6 +136,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         ignoredCommands = ignoredCommands.map { it.trim() }.filter { it.isNotEmpty() },
         ignoredWords = ignoredWords.map { it.trim() }.filter { it.isNotEmpty() },
         textArgument = textArgument.filter { it.key.isNotBlank() && it.value >= 1 },
+        wordWindowSize = sanitizedWordWindows(wordWindowSize),
     )
 
     // ---- convenience accessors (always effective) ---------------------------
@@ -152,6 +160,10 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     var ignoredCommands: List<String>
         get() = effective().ignoredCommands
         set(value) { updateEffective(effective().copy(ignoredCommands = value)) }
+
+    var wordWindowSize: List<Pair<String, Int>>
+        get() = effective().wordWindowSize
+        set(value) { updateEffective(effective().copy(wordWindowSize = value)) }
 
     var textArgument: Map<String, Int>
         get() = effective().textArgument
@@ -179,6 +191,8 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
             ignoredWords = data.ignoredWords.toSet(),
             ignoredCommands = data.ignoredCommands.toSet(),
             textArgument = data.textArgument,
+            // Also here: a YAML file edited by hand is read as it is.
+            wordWindowSize = sanitizedWordWindows(data.wordWindowSize),
             minCommonPrefix = data.minCommonPrefix,
             useStemmer = data.useStemmer,
             lexicon = EchoAppSettings.getInstance().lexiconIfReady(),
@@ -215,6 +229,16 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
 
         /** Whether words with the same Snowball stem are grouped. */
         const val DEFAULT_USE_STEMMER = true
+
+        /** Range of a per-word window: it may go beyond [WINDOW_MAX], for rare, heavy words. */
+        const val WORD_WINDOW_MIN = 1
+        const val WORD_WINDOW_MAX = 1000
+
+        /** Trimmed, without blank or repeated patterns (the first one kept), windows in range. */
+        fun sanitizedWordWindows(rules: List<Pair<String, Int>>): List<Pair<String, Int>> =
+            rules.map { (p, w) -> p.trim() to w.coerceIn(WORD_WINDOW_MIN, WORD_WINDOW_MAX) }
+                .filter { it.first.isNotEmpty() }
+                .distinctBy { it.first }
 
         const val DEFAULT_FILE_NAME = "ideaEcho.yaml"
 
