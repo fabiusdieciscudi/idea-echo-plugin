@@ -81,26 +81,53 @@ class LocalThesaurusTest {
     @Test
     fun `every synonym is a link that carries the synonym`() {
         val entries = listOf(LocalThesaurus.Entry("stringere", thesaurus.senses("stringere")))
-        val html = ThesaurusHtml.entries("strinse", entries, palette, pickScript = "send(w);")
-        assertTrue(html.contains("function pick(w){send(w);}"))
+        val html = ThesaurusHtml.entries("strinse", entries, palette, sendScript = "post(m);")
+        assertTrue(html.contains("function send(m){post(m);}"))
         assertTrue(html.contains("data-word=\"tenere in pugno\""))
         assertTrue(html.contains("href=\"pick:tenere+in+pugno\""))
         assertEquals("tenere in pugno", ThesaurusHtml.pickedWord("pick:tenere+in+pugno"))
+        assertEquals("tenere in pugno", ThesaurusHtml.pickedWord("pick:tenere%20in%20pugno"))
     }
 
     @Test
-    fun `without a script the links work through their href only`() {
+    fun `without a script links and form work on their own`() {
         val entries = listOf(LocalThesaurus.Entry("casa", thesaurus.senses("casa")))
         val html = ThesaurusHtml.entries("casa", entries, palette)
         assertFalse(html.contains("<script>"))
         assertFalse(html.contains("onclick"))
+        assertFalse(html.contains("onsubmit"))
         assertTrue(html.contains("href=\"pick:dimora\""))
+        assertTrue(html.contains("action=\"search:\""))
     }
 
     @Test
-    fun `other links are not picks`() {
+    fun `every page starts with a search box holding the word`() {
+        val entries = listOf(LocalThesaurus.Entry("casa", thesaurus.senses("casa")))
+        val page = ThesaurusHtml.entries("case", entries, palette, sendScript = "post(m);")
+        assertTrue(page.indexOf("<form") < page.indexOf("<h2>"))
+        assertTrue(page.contains("value=\"case\""))
+        assertTrue(page.contains("onsubmit=\"search(this.q.value);return false\""))
+
+        val message = ThesaurusHtml.message("No synonyms for x.", palette, "x")
+        assertTrue(message.contains("value=\"x\""))
+        assertTrue(message.contains("No synonyms for x."))
+        assertFalse(ThesaurusHtml.message(null, palette).contains("class=\"message\""))
+    }
+
+    @Test
+    fun `searches are read back from messages and from form data`() {
+        assertEquals("perché", ThesaurusHtml.searchedWord("search:perch%C3%A9"))
+        assertEquals(null, ThesaurusHtml.searchedWord("search:%20"))
+        assertEquals(null, ThesaurusHtml.searchedWord("pick:casa"))
+        assertEquals("modo di dire", ThesaurusHtml.searchedWordFromForm("q=modo+di+dire"))
+        assertEquals(null, ThesaurusHtml.searchedWordFromForm("q="))
+    }
+
+    @Test
+    fun `other messages are not picks`() {
         assertEquals(null, ThesaurusHtml.pickedWord("https://example.org"))
         assertEquals(null, ThesaurusHtml.pickedWord(null))
+        assertEquals(null, ThesaurusHtml.pickedWord("search:casa"))
         assertEquals("perché", ThesaurusHtml.pickedWord("pick:perch%C3%A9"))
     }
 

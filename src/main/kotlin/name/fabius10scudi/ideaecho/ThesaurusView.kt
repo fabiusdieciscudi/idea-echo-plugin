@@ -12,13 +12,16 @@ import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.JScrollPane
 import javax.swing.event.HyperlinkEvent
+import javax.swing.text.html.FormSubmitEvent
+import javax.swing.text.html.HTMLEditorKit
 
 /**
  * Vista HTML del dizionario dei sinonimi/contrari.
  * Usa JCEF (rendering HTML completo) se disponibile, altrimenti un fallback Swing.
  *
- * Pages built locally (see [ThesaurusHtml]) may contain clickable synonyms: a click is
- * reported to [onPick] on the UI thread, from either renderer.
+ * Pages built locally (see [ThesaurusHtml]) have a search box and clickable synonyms: a
+ * search is reported to [onSearch], a click to [onPick], on the UI thread, from either
+ * renderer.
  */
 class ThesaurusView(parent: Disposable) : Disposable {
 
@@ -26,10 +29,10 @@ class ThesaurusView(parent: Disposable) : Disposable {
         if (JBCefApp.isSupported()) JBCefBrowser() else null
 
     // Created before the browser loads anything, as JBCefJSQuery requires.
-    private val pickQuery: JBCefJSQuery? = browser?.let { b ->
+    private val sendQuery: JBCefJSQuery? = browser?.let { b ->
         JBCefJSQuery.create(b as JBCefBrowserBase).also { query ->
-            query.addHandler { word ->
-                ApplicationManager.getApplication().invokeLater { onPick?.invoke(word) }
+            query.addHandler { message ->
+                ApplicationManager.getApplication().invokeLater { dispatch(message) }
                 null
             }
         }
@@ -39,9 +42,13 @@ class ThesaurusView(parent: Disposable) : Disposable {
         JEditorPane("text/html", "").apply {
             isEditable = false
             border = JBUI.Borders.empty(8)
+            // Report form submissions as events instead of loading the action URL.
+            (editorKit as? HTMLEditorKit)?.isAutoFormSubmission = false
             addHyperlinkListener { e ->
-                if (e.eventType == HyperlinkEvent.EventType.ACTIVATED) {
-                    ThesaurusHtml.pickedWord(e.description)?.let { onPick?.invoke(it) }
+                if (e is FormSubmitEvent) {
+                    ThesaurusHtml.searchedWordFromForm(e.data)?.let { onSearch?.invoke(it) }
+                } else if (e.eventType == HyperlinkEvent.EventType.ACTIVATED) {
+                    dispatch(e.description)
                 }
             }
         }
@@ -52,15 +59,23 @@ class ThesaurusView(parent: Disposable) : Disposable {
     /** Called with the synonym the user clicked, on the UI thread. */
     var onPick: ((String) -> Unit)? = null
 
+    /** Called with the word searched in the page's search box, on the UI thread. */
+    var onSearch: ((String) -> Unit)? = null
+
     /**
-     * The body of the JavaScript `pick(w)` function for pages shown with [showHtml], or
-     * null in the Swing fallback, where links are reported through their `href` instead.
+     * The body of the JavaScript `send(m)` function for pages shown with [showHtml], or
+     * null in the Swing fallback, where links and the form are reported without scripts.
      */
-    val pickScript: String? get() = pickQuery?.inject("w")
+    val sendScript: String? get() = sendQuery?.inject("m")
 
     init {
         Disposer.register(parent, this)
-        pickQuery?.let { Disposer.register(this, it) }
+        sendQuery?.let { Disposer.register(this, it) }
+    }
+
+    private fun dispatch(message: String?) {
+        ThesaurusHtml.pickedWord(message)?.let { onPick?.invoke(it); return }
+        ThesaurusHtml.searchedWord(message)?.let { onSearch?.invoke(it) }
     }
 
     /** Shows a page built locally, e.g. the entries of the local thesaurus. */

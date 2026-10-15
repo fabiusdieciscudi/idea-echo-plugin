@@ -167,9 +167,9 @@ Below the table, a dropdown selects the synonyms/antonyms source, and the page f
 the currently selected word is rendered underneath. The choice is remembered per
 project.
 
-Next to the dropdown, a **search field** looks up any word: type it and press Enter.
-It works with every source. When you select an echo, the field shows the word looked
-up, so you can adjust it and search again.
+The online dictionaries have a search box of their own in their pages; so does the
+*Local thesaurus*, at the top of every page it shows. It holds the word looked up, so
+you can adjust it, or type any other word, and press Enter.
 
 The sources are the online dictionaries, plus **Local thesaurus**, which reads a file on
 your computer instead (see [The local thesaurus](#the-local-thesaurus)). It works offline
@@ -188,7 +188,7 @@ editor**. What gets replaced is, in this order:
 3. for a page opened from an echo, the occurrence **under the caret**. Moving the caret
    onto a highlighted word opens its page, so the usual gesture is: click the echo in
    the editor, then click the synonym;
-4. for a page opened from the search field, the word under the caret, whatever it is
+4. for a page opened from the search box, the word under the caret, whatever it is
    (the name of a LaTeX command never counts as a word).
 
 If none applies, nothing is replaced and a hint says what to do. This happens, for

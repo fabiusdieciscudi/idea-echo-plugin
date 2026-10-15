@@ -36,12 +36,12 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
-import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import org.jetbrains.annotations.PropertyKey
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Font
@@ -120,11 +120,6 @@ class EchoToolWindowPanel(private val project: Project) :
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val collator = Collator.getInstance(Locale.ITALIAN)
 
-    /** Free search: a word typed here and confirmed with Enter is shown in the thesaurus view. */
-    private val searchField = SearchTextField(false).apply {
-        textEditor.emptyText.text = EchoBundle.message("toolwindow.search.placeholder")
-    }
-
     /** The word the thesaurus view shows, to show it again once the local file is read. */
     private var thesaurusWord: String? = null
 
@@ -164,12 +159,8 @@ class EchoToolWindowPanel(private val project: Project) :
 
         table.columnModel.getColumn(0).cellRenderer = WordCellRenderer()
 
-        val thesaurusBar = JPanel(BorderLayout(JBUI.scale(4), 0)).apply {
-            add(thesaurusCombo, BorderLayout.WEST)
-            add(searchField, BorderLayout.CENTER)
-        }
         val thesaurusPanel = JPanel(BorderLayout()).apply {
-            add(thesaurusBar, BorderLayout.NORTH)
+            add(thesaurusCombo, BorderLayout.NORTH)
             add(thesaurus.component, BorderLayout.CENTER)
         }
         val splitter = JBSplitter(true, 0.5f).apply {
@@ -183,7 +174,13 @@ class EchoToolWindowPanel(private val project: Project) :
         thesaurusCombo.addActionListener {
             if (syncingControls) return@addActionListener
             settings.thesaurusIndex = thesaurusCombo.selectedIndex
-            thesaurusWord?.let { showThesaurus(it, thesaurusGroup) }
+            val word = thesaurusWord
+            when {
+                word != null -> showThesaurus(word, thesaurusGroup)
+                // Nothing looked up yet: the local page still offers its search box.
+                currentThesaurusSource() == EchoConfig.LocalThesaurusSource ->
+                    thesaurus.showHtml(ThesaurusHtml.message(null, thesaurusPalette(), "", thesaurus.sendScript))
+            }
         }
 
         // Single click: load synonyms for the first variant + underline occurrences.
@@ -232,10 +229,8 @@ class EchoToolWindowPanel(private val project: Project) :
         // A click on a synonym of the local thesaurus replaces the current echo.
         thesaurus.onPick = { replaceCurrentEcho(it) }
 
-        // Enter in the search field: synonyms of the typed word, not tied to any echo.
-        searchField.textEditor.addActionListener {
-            searchField.text.trim().takeIf { it.isNotEmpty() }?.let { showThesaurus(it, null) }
-        }
+        // The search box of the local thesaurus page: synonyms of any word, not tied to an echo.
+        thesaurus.onSearch = { showThesaurus(it, null) }
 
         // The panel is created when the tool window is first shown -> start active.
         setActive(true)
@@ -344,36 +339,36 @@ class EchoToolWindowPanel(private val project: Project) :
     private fun showThesaurus(word: String, group: String?) {
         thesaurusWord = word
         thesaurusGroup = group
-        if (searchField.text != word) searchField.text = word
         when (val source = currentThesaurusSource()) {
             is EchoConfig.ThesaurusServer -> thesaurus.showUrl(word, source.urlFor(word))
             EchoConfig.LocalThesaurusSource -> thesaurus.showHtml(localThesaurusPage(word))
         }
     }
 
+    private fun thesaurusPalette() = ThesaurusHtml.Palette(
+        background = "#" + ColorUtil.toHex(UIUtil.getPanelBackground()),
+        foreground = "#" + ColorUtil.toHex(UIUtil.getLabelForeground()),
+        secondary = "#" + ColorUtil.toHex(JBUI.CurrentTheme.ContextHelp.FOREGROUND),
+    )
+
     /** The page for [word] from the local thesaurus, or a message saying why there is none. */
     private fun localThesaurusPage(word: String): String {
-        val palette = ThesaurusHtml.Palette(
-            background = "#" + ColorUtil.toHex(UIUtil.getPanelBackground()),
-            foreground = "#" + ColorUtil.toHex(UIUtil.getLabelForeground()),
-            secondary = "#" + ColorUtil.toHex(JBUI.CurrentTheme.ContextHelp.FOREGROUND),
-        )
+        val palette = thesaurusPalette()
+        val send = thesaurus.sendScript
+        fun message(@PropertyKey(resourceBundle = "messages.EchoBundle") key: String, vararg params: Any) =
+            ThesaurusHtml.message(EchoBundle.message(key, *params), palette, word, send)
+
         val app = EchoAppSettings.getInstance()
-        if (app.thesaurusPath.isBlank()) {
-            return ThesaurusHtml.message(EchoBundle.message("thesaurus.local.notConfigured"), palette)
+        if (!app.hasLocalThesaurus()) return message("thesaurus.local.notConfigured")
+        val thesauri = app.thesauriIfReady()
+        if (thesauri.isEmpty()) {
+            return message(if (app.thesaurusLoading()) "thesaurus.local.loading" else "thesaurus.local.unreadable")
         }
-        val local = app.thesaurusIfReady()
-            ?: return ThesaurusHtml.message(
-                EchoBundle.message(
-                    if (app.thesaurusLoading()) "thesaurus.local.loading" else "thesaurus.local.unreadable"
-                ),
-                palette,
-            )
-        val entries = local.lookup(word, app.lexiconIfReady())
+        val entries = LocalThesaurus.lookup(word, app.lexiconIfReady(), thesauri)
         return if (entries.isEmpty()) {
-            ThesaurusHtml.message(EchoBundle.message("thesaurus.local.notFound", word), palette)
+            message("thesaurus.local.notFound", word)
         } else {
-            ThesaurusHtml.entries(word, entries, palette, thesaurus.pickScript)
+            ThesaurusHtml.entries(word, entries, palette, send)
         }
     }
 
@@ -384,7 +379,7 @@ class EchoToolWindowPanel(private val project: Project) :
      *    be tried one after the other;
      *  - the selection;
      *  - for a page opened from an echo, the occurrence of its group under the caret;
-     *  - for a free search, the word under the caret.
+     *  - after a search in the page's search box, the word under the caret.
      * When there is none, nothing is replaced and a hint says why: with the page opened
      * from the table there may be many occurrences, and guessing would surprise.
      */
