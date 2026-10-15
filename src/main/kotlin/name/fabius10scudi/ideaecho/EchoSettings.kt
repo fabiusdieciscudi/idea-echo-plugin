@@ -24,6 +24,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         var minWordLength: Int = DEFAULT_MIN_WORD_LENGTH,
         var windowSize: Int = DEFAULT_WINDOW_SIZE,
         var minCommonPrefix: Int = DEFAULT_MIN_COMMON_PREFIX,
+        var useStemmer: Boolean = DEFAULT_USE_STEMMER,
         var thesaurusIndex: Int = 0,
         var ignoredCommands: MutableList<String> = EchoConfig.DEFAULT_IGNORED_COMMANDS.toMutableList(),
         var textArgument: MutableMap<String, Int> = EchoConfig.DEFAULT_TEXT_ARGUMENT.toMutableMap(),
@@ -102,6 +103,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         minWordLength = state.minWordLength,
         windowSize = state.windowSize,
         minCommonPrefix = state.minCommonPrefix,
+        useStemmer = state.useStemmer,
         ignoredCommands = state.ignoredCommands,
         ignoredWords = state.ignoredWords,
         textArgument = state.textArgument,
@@ -113,6 +115,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         state.minWordLength = clean.minWordLength
         state.windowSize = clean.windowSize
         state.minCommonPrefix = clean.minCommonPrefix
+        state.useStemmer = clean.useStemmer
         state.ignoredCommands = clean.ignoredCommands.toMutableList()
         state.ignoredWords = clean.ignoredWords.toMutableList()
         state.textArgument = clean.textArgument.toMutableMap()
@@ -122,6 +125,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         minWordLength = minWordLength.coerceIn(MIN_WORD_LENGTH_MIN, MIN_WORD_LENGTH_MAX),
         windowSize = windowSize.coerceIn(WINDOW_MIN, WINDOW_MAX),
         minCommonPrefix = minCommonPrefix.coerceIn(COMMON_PREFIX_MIN, COMMON_PREFIX_MAX),
+        useStemmer = useStemmer,
         ignoredCommands = ignoredCommands.map { it.trim() }.filter { it.isNotEmpty() },
         ignoredWords = ignoredWords.map { it.trim() }.filter { it.isNotEmpty() },
         textArgument = textArgument.filter { it.key.isNotBlank() && it.value >= 1 },
@@ -140,6 +144,10 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
     var minCommonPrefix: Int
         get() = effective().minCommonPrefix
         set(value) { updateEffective(effective().copy(minCommonPrefix = value)) }
+
+    var useStemmer: Boolean
+        get() = effective().useStemmer
+        set(value) { updateEffective(effective().copy(useStemmer = value)) }
 
     var ignoredCommands: List<String>
         get() = effective().ignoredCommands
@@ -172,6 +180,7 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
             ignoredCommands = data.ignoredCommands.toSet(),
             textArgument = data.textArgument,
             minCommonPrefix = data.minCommonPrefix,
+            useStemmer = data.useStemmer,
             lexicon = EchoAppSettings.getInstance().lexiconIfReady(),
         )
     }
@@ -203,6 +212,9 @@ class EchoSettings(private val project: Project) : PersistentStateComponent<Echo
         const val COMMON_PREFIX_MIN = 0
         const val COMMON_PREFIX_MAX = 12
         const val DEFAULT_MIN_COMMON_PREFIX = 4
+
+        /** Whether words with the same Snowball stem are grouped. */
+        const val DEFAULT_USE_STEMMER = true
 
         const val DEFAULT_FILE_NAME = "ideaEcho.yaml"
 

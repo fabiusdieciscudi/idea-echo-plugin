@@ -53,6 +53,8 @@ class EchoConfigurable(private val project: Project) : Configurable {
         )
     )
 
+    private val stemmerCheck = JBCheckBox(EchoBundle.message("settings.useStemmer"))
+
     /** IDE-wide, stored in EchoAppSettings, never in the YAML file. */
     private val lexiconPathField = TextFieldWithBrowseButton()
 
@@ -142,6 +144,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
             .addSeparator()
             .addLabeledComponent(EchoBundle.message("settings.minWordLength"), minLengthCombo)
             .addLabeledComponent(EchoBundle.message("settings.windowSize"), windowSpinner)
+            .addComponent(stemmerCheck)
             .addLabeledComponent(EchoBundle.message("settings.minCommonPrefix"), prefixSpinner)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.ignoredCommands"), commandsPanel)
             .addLabeledComponentFillVertically(EchoBundle.message("settings.textArgument"), argumentPanel)
@@ -275,6 +278,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
         minLengthCombo.selectedItem = data.minWordLength
         windowSpinner.value = data.windowSize
         prefixSpinner.value = data.minCommonPrefix
+        stemmerCheck.isSelected = data.useStemmer
 
         commandsModel.clear()
         data.ignoredCommands.forEach { commandsModel.addElement(it) }
@@ -291,6 +295,7 @@ class EchoConfigurable(private val project: Project) : Configurable {
         minWordLength = minLengthCombo.selectedItem as Int,
         windowSize = windowSpinner.value as Int,
         minCommonPrefix = prefixSpinner.value as Int,
+        useStemmer = stemmerCheck.isSelected,
         ignoredCommands = currentCommands(),
         ignoredWords = currentWords(),
         textArgument = currentTextArgument(),
