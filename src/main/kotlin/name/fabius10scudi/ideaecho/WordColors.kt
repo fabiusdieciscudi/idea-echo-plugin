@@ -6,8 +6,8 @@ import java.util.zip.CRC32
 
 /**
  * Red is reserved for repetitions within the same sentence. Cross-sentence echoes
- * get a stable palette colour derived from the Snowball stem via CRC32, so all the
- * variants of a group always share a hue.
+ * get a stable palette colour derived from the group key ([Echo.group]) via CRC32,
+ * so all the variants of a group always share a hue.
  *
  * The light/dark variant is chosen from the *actual* background the colour will be
  * painted on, not from the IDE theme nor from the colour scheme: another plugin may
@@ -33,23 +33,23 @@ object WordColors {
      * @param windowSize the look-back window, i.e. the distance mapped to [MIN_ALPHA].
      */
     fun colorFor(
-        word: String,
+        group: String,
         sameSentence: Boolean,
         editorBackground: Color,
         minGap: Int,
         windowSize: Int,
     ): Color {
         val dark = isDark(editorBackground)
-        val hue = if (sameSentence) 0 else HUES[stemHash(word).mod(HUES.size)]
+        val hue = if (sameSentence) 0 else HUES[groupHash(group).mod(HUES.size)]
         return blend(background(hue, dark), editorBackground, alphaFor(minGap, windowSize))
     }
 
     // ---- tool window table: word foreground ---------------------------------
 
-    fun textColorFor(word: String, sameSentence: Boolean): Color {
+    fun textColorFor(group: String, sameSentence: Boolean): Color {
         val dark = isDark(UIUtil.getTableBackground())
         if (sameSentence) return foreground(0, dark)
-        return foreground(HUES[stemHash(word).mod(HUES.size)], dark)
+        return foreground(HUES[groupHash(group).mod(HUES.size)], dark)
     }
 
     // ---- distance fading -----------------------------------------------------
@@ -108,8 +108,7 @@ object WordColors {
     private const val DARK_SATURATION = 0.60f
     private const val DARK_BRIGHTNESS = 0.75f
 
-    private fun stemHash(word: String): Int {
-        val stem = RepetitionAnalyzer.stem(word)
-        return CRC32().apply { update(stem.toByteArray(Charsets.UTF_8)) }.value.toInt()
-    }
+    /** The key is already a stem, so a single-stem group keeps the hue it always had. */
+    private fun groupHash(group: String): Int =
+        CRC32().apply { update(group.toByteArray(Charsets.UTF_8)) }.value.toInt()
 }

@@ -57,8 +57,9 @@ import javax.swing.table.DefaultTableModel
 class EchoToolWindowPanel(private val project: Project) :
     JPanel(BorderLayout()), Disposable {
 
-    /** One table row = all variants sharing the same Snowball stem (e.g. "porta/portare"). */
+    /** One table row = all variants of one word group (e.g. "porta/portare"), see [Echo.group]. */
     private data class EchoRow(
+        val group: String,        // the group key, which also picks the colour
         val display: String,      // variants joined alphabetically
         val count: Int,           // total occurrences across variants
         val firstOffset: Int,     // offset of the earliest occurrence
@@ -335,10 +336,10 @@ class EchoToolWindowPanel(private val project: Project) :
             RepetitionAnalyzer.analyze(document.text, settings.toParams())
         else emptyList()
 
-        // Group by Snowball stem; variants sorted alphabetically.
+        // Group as the analyzer did; variants sorted alphabetically.
         val builtRows = ArrayList<EchoRow>()
         val builtMap = HashMap<String, EchoRow>()
-        for ((key, list) in echoes.groupBy { groupKey(it.word) }) {
+        for ((key, list) in echoes.groupBy { it.group }) {
             val variants = list.map { it.word }.distinct().sortedWith { a, b -> collator.compare(a, b) }
             // Minimum gaps: computed independently over adjacent occurrences once sorted.
             val byWordIndex = list.sortedBy { it.wordIndex }
@@ -347,6 +348,7 @@ class EchoToolWindowPanel(private val project: Project) :
             val minSentenceGap = byWordIndex.zipWithNext()
                 .minOfOrNull { (a, b) -> b.sentenceId - a.sentenceId } ?: 0
             val row = EchoRow(
+                group = key,
                 display = variants.joinToString("/"),
                 count = list.size,
                 firstOffset = list.minOf { it.startOffset },
@@ -365,16 +367,13 @@ class EchoToolWindowPanel(private val project: Project) :
         for (r in rows) tableModel.addRow(arrayOf<Any>(r.display, r.count, r.minWordGap, r.minSentenceGap))
     }
 
-    /** Grouping key shared with the analyzer: the Snowball stem. */
-    private fun groupKey(word: String) = RepetitionAnalyzer.stem(word)
-
     /** When the caret enters a highlighted word, trigger the same action as a table click. */
     private fun onCaretMoved() {
         if (!active) return
         val editor = observedEditor ?: return
         val offset = editor.caretModel.offset
         val key = echoes.firstOrNull { offset in it.startOffset until it.endOffset }
-            ?.let { groupKey(it.word) }
+            ?.group
         if (key == lastCaretKey) return   // still inside the same echo word: don't re-trigger
         lastCaretKey = key
         key?.let { rowByKey[it] }?.let { row ->
@@ -452,7 +451,7 @@ class EchoToolWindowPanel(private val project: Project) :
         OpenFileDescriptor(project, vFile, row.firstOffset).navigate(true)
     }
 
-    /** Paints each word in its stable stem color (foreground). */
+    /** Paints each word in its stable group colour (foreground). */
     private inner class WordCellRenderer : DefaultTableCellRenderer() {
         override fun getTableCellRendererComponent(
             table: JTable, value: Any?, isSelected: Boolean,
@@ -461,7 +460,7 @@ class EchoToolWindowPanel(private val project: Project) :
             super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
             if (!isSelected) {
                 rows.getOrNull(table.convertRowIndexToModel(row))?.let {
-                    foreground = WordColors.textColorFor(it.searchWord, sameSentence = false)
+                    foreground = WordColors.textColorFor(it.group, sameSentence = false)
                 }
             }
             return this

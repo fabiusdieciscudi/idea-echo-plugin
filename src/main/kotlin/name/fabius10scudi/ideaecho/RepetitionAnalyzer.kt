@@ -8,10 +8,11 @@ data class Echo(
     val word: String,
     val startOffset: Int,
     val endOffset: Int,
-    val sameSentence: Boolean, // repeated inside the same sentence -> painted red
+    val sameSentence: Boolean, // has a twin inside the same sentence -> painted red
     val wordIndex: Int,        // progressive index among *accepted* words (matches the window)
     val sentenceId: Int,       // sentence number, 0-based
-    val minGap: Int,           // words to the nearest occurrence of the same group (1..windowSize)
+    val minGap: Int,           // words to the nearest twin (1..windowSize)
+    val group: String,         // key shared by every occurrence of the same word group
 )
 
 /**
@@ -20,6 +21,10 @@ data class Echo(
  * [ignoredWords] entries are regular expressions matched against the whole word.
  * Entries without regex metacharacters are kept in a fast literal set; the rest
  * are compiled once. Invalid patterns are skipped rather than breaking analysis.
+ *
+ * [minCommonPrefix] is the number of leading letters two words must share to be
+ * grouped even when their stems differ; 0 turns the rule off. [lexicon], when
+ * present, groups forms that have a lemma in common.
  */
 data class AnalyzerParams(
     val minWordLength: Int,
@@ -27,6 +32,8 @@ data class AnalyzerParams(
     val ignoredWords: Set<String>,
     val ignoredCommands: Set<String>,
     val textArgument: Map<String, Int>,
+    val minCommonPrefix: Int = 0,
+    val lexicon: MorphLexicon? = null,
 ) {
     private val ignoredLiterals: Set<String> =
         ignoredWords.filterNot { it.hasRegexMeta() }.map { it.lowercase() }.toSet()
@@ -50,8 +57,14 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
 /**
  * Detects "nearby echoes": words repeated within a sliding window of the last
- * N words. Two words match if they are equal, or equal except for the final
- * vowel (same length, both ending in a vowel).
+ * N words. Two words match when any of these holds (see [RepetitionAnalyzer.wordsMatch]):
+ *  - they have the same Snowball Italian stem;
+ *  - the lexicon gives them a lemma in common;
+ *  - they share at least [AnalyzerParams.minCommonPrefix] leading letters.
+ *
+ * The relation is not transitive (`parte` ~ `partire` ~ `partita`), so groups are
+ * the connected components of the pairs actually found in the text: two variants
+ * end up in the same table row when a chain of real echoes links them.
  *
  * LaTeX is pre-processed first (see maskLatex): argument commands are unwrapped
  * to their first argument, ignored commands are dropped with their content, and
@@ -72,6 +85,9 @@ object RepetitionAnalyzer {
         val wordIndex: Int,
     )
 
+    /** What is known about a marked occurrence, from all the pairs it took part in. */
+    private class Mark(var minGap: Int, var sameSentence: Boolean)
+
     // italianStemmer keeps mutable state -> one instance per thread.
     private val stemmer = ThreadLocal.withInitial { italianStemmer() }
     private val stemCache = ConcurrentHashMap<String, String>()
@@ -80,8 +96,8 @@ object RepetitionAnalyzer {
         val masked = maskLatex(text, params) // same length as text, so offsets stay valid
 
         val window = ArrayDeque<Occurrence>()
-        val seen = HashSet<Occurrence>()
-        val marksBySentence = HashMap<Int, MutableList<Occurrence>>()
+        val marks = HashMap<Occurrence, Mark>()
+        val groups = WordGroups()
         var sentenceId = 0
         var wordCounter = 0   // counts only accepted words, like the sliding window does
 
@@ -104,13 +120,15 @@ object RepetitionAnalyzer {
                 wordCounter++
 
                 for (prev in window) {
-                    if (wordsMatch(prev.word, word)) {
-                        for (occ in listOf(current, prev)) {
-                            if (seen.add(occ)) {
-                                marksBySentence.getOrPut(occ.sentenceId) { mutableListOf() }.add(occ)
-                            }
-                        }
+                    if (!wordsMatch(prev.word, word, params)) continue
+                    val gap = current.wordIndex - prev.wordIndex
+                    val sameSentence = prev.sentenceId == current.sentenceId
+                    for (occ in listOf(prev, current)) {
+                        val mark = marks.getOrPut(occ) { Mark(gap, false) }
+                        mark.minGap = minOf(mark.minGap, gap)
+                        if (sameSentence) mark.sameSentence = true
                     }
+                    groups.union(prev.word, word)
                 }
 
                 window.addLast(current)
@@ -119,24 +137,57 @@ object RepetitionAnalyzer {
             sentenceId++
         }
 
-        // Red when the same word is marked more than once within its sentence.
-        val echoes = ArrayList<Echo>()
-        for ((_, marks) in marksBySentence) {
-            val countByWord = marks.groupingBy { it.word }.eachCount()
-            for (occ in marks) {
-                echoes += Echo(
-                    word = occ.word,
-                    startOffset = occ.offset,
-                    endOffset = occ.offset + occ.word.length,
-                    sameSentence = (countByWord[occ.word] ?: 0) > 1,
-                    wordIndex = occ.wordIndex,
-                    sentenceId = occ.sentenceId,
-                    minGap = 0,   // filled in by withMinGaps below
-                )
+        return marks.map { (occ, mark) ->
+            Echo(
+                word = occ.word,
+                startOffset = occ.offset,
+                endOffset = occ.offset + occ.word.length,
+                sameSentence = mark.sameSentence,
+                wordIndex = occ.wordIndex,
+                sentenceId = occ.sentenceId,
+                minGap = mark.minGap.coerceIn(1, params.windowSize),
+                group = groups.keyOf(occ.word),
+            )
+        }.sortedBy { it.startOffset }
+    }
+
+    /**
+     * Union-find over the words that echoed each other. The key of a group is the
+     * smallest stem among its members: it does not depend on the order in which the
+     * pairs were found, and a group made of one stem keeps that stem as its key, so
+     * its colour is the same in every file.
+     */
+    private class WordGroups {
+        private val parent = HashMap<String, String>()
+
+        private fun find(word: String): String {
+            var root = word
+            while (true) root = parent[root]?.takeIf { it != root } ?: break
+            var w = word
+            while (w != root) { val next = parent.getValue(w); parent[w] = root; w = next }
+            return root
+        }
+
+        fun union(w1: String, w2: String) {
+            parent.putIfAbsent(w1, w1)
+            parent.putIfAbsent(w2, w2)
+            val r1 = find(w1)
+            val r2 = find(w2)
+            if (r1 != r2) parent[r1] = r2
+        }
+
+        private val keys: Map<String, String> by lazy {
+            val members = parent.keys.groupBy { find(it) }
+            buildMap {
+                for ((_, words) in members) {
+                    val key = words.minOf { stem(it) }
+                    for (w in words) put(w, key)
+                }
             }
         }
-        echoes.sortBy { it.startOffset }
-        return withMinGaps(echoes, params.windowSize)
+
+        /** Valid once all the unions are done. */
+        fun keyOf(word: String): String = keys[word] ?: stem(word)
     }
 
 // --- Previous rule: equal, or equal except the final vowel (same length) ---
@@ -150,30 +201,15 @@ object RepetitionAnalyzer {
 // }
 
     /**
-     * Fills [Echo.minGap]: for every occurrence, the distance in accepted words to the
-     * closest other occurrence of the same group, looking both backwards and forwards.
-     * Clamped to 1..[windowSize], since a farther occurrence could not be an echo.
+     * True when [w1] and [w2] (lower-cased words, or literal commands) belong together.
+     * Commands only ever match themselves. Public so the rule can be tested directly.
      */
-    private fun withMinGaps(echoes: List<Echo>, windowSize: Int): List<Echo> {
-        if (echoes.isEmpty()) return echoes
-        val gaps = IntArray(echoes.size) { windowSize }
-        for ((_, indices) in echoes.indices.groupBy { stem(echoes[it].word) }) {
-            val ordered = indices.sortedBy { echoes[it].wordIndex }
-            for (k in ordered.indices) {
-                val current = echoes[ordered[k]].wordIndex
-                var best = Int.MAX_VALUE
-                if (k > 0) best = minOf(best, current - echoes[ordered[k - 1]].wordIndex)
-                if (k < ordered.size - 1) best = minOf(best, echoes[ordered[k + 1]].wordIndex - current)
-                if (best != Int.MAX_VALUE) gaps[ordered[k]] = best.coerceIn(1, windowSize)
-            }
-        }
-        return echoes.mapIndexed { i, echo -> echo.copy(minGap = gaps[i]) }
-    }
-
-    private fun wordsMatch(w1: String, w2: String): Boolean {
+    fun wordsMatch(w1: String, w2: String, params: AnalyzerParams): Boolean {
         if (w1 == w2) return true
         if (w1.startsWith('\\') || w2.startsWith('\\')) return false // commands: exact only
-        return stem(w1) == stem(w2)
+        if (stem(w1) == stem(w2)) return true
+        if (params.lexicon?.shareLemma(w1, w2) == true) return true
+        return params.minCommonPrefix > 0 && w1.commonPrefixWith(w2).length >= params.minCommonPrefix
     }
 
 // --- Previous stem: drop the final vowel ---

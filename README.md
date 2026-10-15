@@ -11,8 +11,9 @@ A side panel lists the offending words with their frequency and how close they
 came to each other, and renders a synonyms/antonyms page so you can fix the
 repetition on the spot.
 
-The plugin is tuned for Italian: word grouping uses the Snowball Italian stemmer,
-so `portare` and `porta`, or `stella` and `stelle`, count as the same word.
+The plugin is tuned for Italian. Words are grouped by their Snowball Italian stem,
+by a shared beginning (`bella` and `bellezza`), and, when you provide the free
+Morph-it! lexicon, by their dictionary form (`strinse` and `stringeva`).
 
 ---
 
@@ -25,6 +26,7 @@ so `portare` and `porta`, or `stella` and `stelle`, count as the same word.
 - [The tool window](#the-tool-window)
 - [Settings](#settings)
 - [External YAML configuration](#external-yaml-configuration)
+- [The Morph-it! lexicon](#the-morph-it-lexicon)
 - [LaTeX handling](#latex-handling)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
@@ -62,7 +64,7 @@ IDE with the plugin loaded.
 
 The analyzer walks the document and keeps a **sliding window** of the last *N*
 accepted words. For every new word it looks back through that window; if a word
-with the same stem is already there, both occurrences are marked as an echo.
+that *belongs with it* is already there, both occurrences are marked as an echo.
 
 Three filters run before a word enters the window:
 
@@ -72,10 +74,23 @@ Three filters run before a word enters the window:
 3. **Ignored words.** A list of function words (articles, prepositions, auxiliary
    verbs) is excluded. Each entry is a regular expression.
 
-Words that survive are lower-cased and reduced to their **Snowball Italian stem**.
-Two words are considered the same when their stems match. This is what makes
-`sollecitare` / `sollecitò` and `porta` / `portare` group together, which is the
-intended behaviour: *"portare alla porta"* is a repetition worth catching.
+Words that survive are lower-cased. Two words belong together when **any** of these
+holds:
+
+1. **Same stem.** Both reduce to the same **Snowball Italian stem**. This is what makes
+   `sollecitare` / `sollecitò` and `porta` / `portare` group together, which is the
+   intended behaviour: *"portare alla porta"* is a repetition worth catching.
+2. **Same lemma.** The [Morph-it! lexicon](#the-morph-it-lexicon), if configured, lists a
+   dictionary form they have in common. This catches irregular verbs and forms the
+   stemmer cannot relate: `strinse` / `stringeva`, `offerto` / `offriva`, `poco` / `pochi`.
+3. **Common beginning.** They share at least the configured number of leading letters
+   (4 by default). This catches derived words: `bella` / `bellezza`, `fede` / `fedele`,
+   `gentile` / `gentilissimo`.
+
+The rules are not transitive: `poco` matches `pochi` through the lexicon and `pochi`
+matches `pochissimi` through the beginning, but `poco` and `pochissimi` do not match
+each other. A **word group** is everything linked by a chain of echoes actually found in
+the file, so in that example all three end up in one group.
 
 The distance counter only advances on **accepted** words, so the numbers shown in
 the table are directly comparable with the look-back window you configured.
@@ -90,9 +105,11 @@ writing.
 Two distinct layers of highlighting exist.
 
 **Persistent echo colouring** paints every detected echo with a background colour.
-The colour is derived from the word's stem via CRC32, so a given root always gets
-the same hue, in this file and in every other one. **Red is reserved** for words
-repeated *within the same sentence* — the most jarring kind of echo.
+The colour is derived from the word group via CRC32. A group made of a single stem
+always gets the same hue, in this file and in every other one; a group joined by the
+lexicon or by a common beginning takes the hue of its alphabetically first stem.
+**Red is reserved** for an occurrence that has a twin *within the same sentence*,
+whatever the variant — the most jarring kind of echo.
 
 **On-demand marking** appears when you select a row in the table, or when the
 caret enters a highlighted word. Every occurrence of that word group gets a red
@@ -119,7 +136,7 @@ Changing `Min` or `Window` persists the value and resets everything immediately.
 ### Table
 
 One row per word group, with all its variants joined alphabetically
-(`stella/stelle`). The word is painted in the same stable colour used in the
+(`stella/stelle`, `bella/bellezza`). The word is painted in the same stable colour used in the
 editor.
 
 | Column    | Meaning                                                                    |
@@ -150,9 +167,14 @@ project.
 
 ## Settings
 
-`Settings → Tools → Idea Echo`. Everything here is stored **per project**.
+`Settings → Tools → Idea Echo`. Everything here is stored **per project**, except the
+lexicon path.
 
 **Minimum word length** and **Look-back window** mirror the toolbar controls.
+
+**Group words sharing the first letters** is the number of leading letters two words
+must have in common to be grouped even when their stems differ. The default is 4;
+raise it if unrelated words get grouped, set it to 0 to turn the rule off.
 
 **Ignored LaTeX commands (with content)** is a list with `+` / `-` buttons. These
 commands are removed together with their arguments, so nothing inside them is ever
@@ -179,6 +201,11 @@ per[oò]
 match must span the entire word, `quell[aeio]` will never swallow `quellissimo`.
 An invalid pattern is skipped rather than breaking the analysis.
 
+**Morph-it! lexicon** is the path of the lexicon file (see
+[The Morph-it! lexicon](#the-morph-it-lexicon)). Unlike everything else on this page it
+is **shared by all projects**, and it is never written to the YAML file. Leave it blank
+to group words by stem and common beginning only.
+
 The defaults for ignored commands and ignored words live in
 `src/main/resources/messages/EchoBundle.properties`, which means they follow the
 IDE language and can be localized.
@@ -194,6 +221,7 @@ a path outside it is rejected when you press Apply.
 ```yaml
 minWordLength: 4
 windowSize: 160
+minCommonPrefix: 4
 ignoredCommands:
   - comment
   - note
@@ -229,8 +257,55 @@ closed is safe: everything is loaded at the next start. Editing it while the IDE
 running requires two things — **save the file** (an unsaved editor buffer has not
 changed on disk yet), then press **Update** in the tool window.
 
-The thesaurus server choice is deliberately *not* stored in the YAML file: it is an
-IDE preference, not a property of the manuscript.
+The thesaurus server choice and the lexicon path are deliberately *not* stored in the
+YAML file: they are IDE preferences, not properties of the manuscript.
+
+## The Morph-it! lexicon
+
+[Morph-it!](https://docs.sslmit.unibo.it/doku.php?id=resources:morph-it) is a free
+morphological lexicon of Italian by Marco Baroni and Eros Zanchetta: about half a
+million inflected forms, each with its lemma. It is not bundled with the plugin: you download
+it once and tell the plugin where it is.
+
+### Installing it
+
+1. Download the lexicon from the
+   [Morph-it! page](https://docs.sslmit.unibo.it/doku.php?id=resources:morph-it). You
+   need the plain-text word list, a file of about 19 MB with a name like
+   `morph-it_048.txt` (the number is the version). If it comes as an archive, extract
+   that file. The versions compiled for SFST or the Finite State Utilities are not
+   usable here.
+2. Move the file somewhere stable, outside your manuscripts: the setting is shared by
+   all projects and the plugin reads the file from that path every time the IDE starts.
+   For example `~/Documents/Lexicons/morph-it_048.txt`.
+3. Open `Settings → Tools → Idea Echo`, click the folder button next to
+   **Morph-it! lexicon**, select the file and press **Apply**. A path that does not
+   point to a readable file is rejected.
+4. Check that it was read: `Help → Show Log in Finder/Explorer/Files` opens the IDE
+   log, which should contain a line like
+   `Idea Echo: 404710 forms read from …/morph-it_048.txt`.
+
+To stop using the lexicon, clear the field and press **Apply**. To update it, replace
+the file or select the new one; a changed file is read again automatically.
+
+### Format
+
+The expected format is Morph-it!'s own: one entry per line, tab-separated,
+`form⇥lemma⇥features`. Only the first two columns are used. The file may be in
+ISO-8859-15, as distributed, or in UTF-8, so a converted copy works too.
+
+### At run time
+
+The file is read in the background the first time it is needed and kept in memory: it
+takes under a second and about 50 MB of heap for version 0.48. While
+it loads, words are grouped by stem and common beginning only; when it is ready, every
+open project is re-analyzed. It is read again when its modification time changes. If it
+cannot be read, the reason is written to the IDE log (`Help → Show Log`) and the analysis
+goes on without it.
+
+Morph-it! is dual-licensed under the Creative Commons Attribution-ShareAlike 2.0 License
+and the GNU Lesser General Public License. The plugin itself remains under the MIT
+License, since it neither contains nor redistributes the lexicon.
 
 ## LaTeX handling
 
@@ -286,6 +361,11 @@ localIdePath=/Applications/IntelliJ IDEA.app
 
 - Stemming groups words by root, which is the point, but it also merges unrelated
   homographs that share a stem. This is a deliberate trade-off.
+- The common-beginning rule is cruder still: with 4 letters, `stato` and `statua` are
+  grouped. Raise the number if this gets in the way.
+- With the lexicon, very common verbs become a single group: `sono`, `era`, `sarà` are
+  all forms of *essere*. Add the forms you do not want to see to **Ignored words**.
+- Groups are chains, so a long chain can join variants that look unrelated.
 - Multi-argument commands keep only one argument; the others are dropped.
 - The analyzer re-scans the whole file on every run. This is fine for normal
   chapters; very large single files may feel sluggish while typing.
