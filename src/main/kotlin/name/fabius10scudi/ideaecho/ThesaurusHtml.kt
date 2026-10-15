@@ -64,16 +64,16 @@ object ThesaurusHtml {
         append('>').append(escape(synonym)).append("</a>")
     }
 
-    // Sizes are twice the original 13px text, so the synonyms read at a glance.
+    // Sizes are 1.5 times the original 13px text, so the synonyms read at a glance.
     private fun page(palette: Palette, pickScript: String? = null, body: StringBuilder.() -> Unit): String = buildString {
         append("<html><head><meta charset=\"utf-8\"><style>")
-        append("body{font-family:sans-serif;font-size:26px;margin:16px;")
+        append("body{font-family:sans-serif;font-size:19.5px;margin:12px;")
         append("background:").append(palette.background).append(";color:").append(palette.foreground).append("}")
-        append("h2{font-size:30px;margin:24px 0 8px 0}")
+        append("h2{font-size:22.5px;margin:18px 0 6px 0}")
         append(".from,.category,.message{color:").append(palette.secondary).append("}")
-        append(".from{font-weight:normal;font-size:26px}")
+        append(".from{font-weight:normal;font-size:19.5px}")
         append(".category{font-style:italic}")
-        append("p{margin:4px 0 12px 0}")
+        append("p{margin:3px 0 9px 0}")
         append("a.pick{color:inherit;text-decoration:none;border-bottom:1px dotted ").append(palette.secondary).append("}")
         append("a.pick:hover{border-bottom-style:solid}")
         append("</style>")
