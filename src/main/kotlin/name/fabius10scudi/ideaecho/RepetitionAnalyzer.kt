@@ -1,6 +1,7 @@
 package name.fabius10scudi.ideaecho
 
 import org.tartarus.snowball.ext.italianStemmer
+import java.text.Normalizer
 import java.util.concurrent.ConcurrentHashMap
 
 /** A detected echo: a word repeated within the look-back window. */
@@ -89,10 +90,18 @@ data class AnalyzerParams(
 private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
 /**
+ * Canonical composition (NFC): `o` followed by a combining grave accent (U+0300) becomes `ò`.
+ * Text written or pasted on macOS may carry decomposed accents, which would never match the
+ * precomposed forms of the lexicon, nor the same word typed with a precomposed letter.
+ */
+internal fun String.composed(): String =
+    if (Normalizer.isNormalized(this, Normalizer.Form.NFC)) this else Normalizer.normalize(this, Normalizer.Form.NFC)
+
+/**
  * Detects "nearby echoes": words repeated within a sliding window of the last
  * N words. Two words match when any of these holds (see [RepetitionAnalyzer.wordsMatch]):
  *  - they have the same Snowball Italian stem, unless [AnalyzerParams.useStemmer] is off;
- *  - the lexicon gives them a lemma in common;
+ *  - the lexicon gives them a lemma in common, and they begin alike (see [lexiconMatch]);
  *  - they share at least [AnalyzerParams.minCommonPrefix] leading letters.
  *
  * The relation is not transitive (`parte` ~ `partire` ~ `partita`), so groups are
@@ -115,6 +124,7 @@ object RepetitionAnalyzer {
         val word: String,
         val sentenceId: Int,
         val offset: Int,
+        val length: Int,      // in the text, which may differ from word.length (see composed)
         val wordIndex: Int,
     )
 
@@ -142,14 +152,16 @@ object RepetitionAnalyzer {
             for (tokenMatch in TOKEN_PATTERN.findAll(tokenizable)) {
                 val raw = tokenMatch.value
                 val isCommand = raw.startsWith('\\')
-                // Commands stay literal (backslash + original case); words are lowercased.
-                val word = if (isCommand) raw else raw.lowercase()
+                // Commands stay literal (backslash + original case); words are lowercased and composed.
+                val word = if (isCommand) raw else raw.lowercase().composed()
 
                 if (!isCommand &&
                     (word.length < params.minWordLength || params.isIgnored(word))
                 ) continue
 
-                val current = Occurrence(word, sentenceId, sentenceStart + tokenMatch.range.first, wordCounter)
+                val current = Occurrence(
+                    word, sentenceId, sentenceStart + tokenMatch.range.first, raw.length, wordCounter
+                )
                 wordCounter++
 
                 for (prev in window) {
@@ -179,7 +191,7 @@ object RepetitionAnalyzer {
             Echo(
                 word = occ.word,
                 startOffset = occ.offset,
-                endOffset = occ.offset + occ.word.length,
+                endOffset = occ.offset + occ.length,
                 sameSentence = mark.sameSentence,
                 wordIndex = occ.wordIndex,
                 sentenceId = occ.sentenceId,
@@ -247,9 +259,57 @@ object RepetitionAnalyzer {
         if (w1 == w2) return true
         if (w1.startsWith('\\') || w2.startsWith('\\')) return false // commands: exact only
         if (params.useStemmer && stem(w1) == stem(w2)) return true
-        if (params.lexicon?.shareLemma(w1, w2) == true) return true
+        if (lexiconMatch(w1, w2, params.lexicon)) return true
         return params.minCommonPrefix > 0 && w1.commonPrefixWith(w2).length >= params.minCommonPrefix
     }
+
+    /**
+     * Letters at the start of two forms that the lexicon rule requires to be equal. Forms
+     * of one lemma that begin differently, as suppletive and very irregular verbs do
+     * (`abbiamo` / `avendo`, `sono` / `stato`, `vado` / `andare`), are not heard as a
+     * repetition.
+     */
+    private const val LEXICON_INITIALS = 2
+
+    /**
+     * Lemmas whose forms are grouped even when they begin differently, since the change
+     * is in a vowel and the repetition is still heard: `dovere` / `devo`, `sapere` / `seppe`.
+     */
+    private val LEXICON_INITIALS_EXEMPT = setOf("dovere", "sapere")
+
+    /** Mobile diphthongs, reduced to their vowel so that `muore` begins like `morire`. */
+    private val MOBILE_DIPHTHONG = Regex("uo|ie")
+
+    private val COMBINING_MARK = Regex("\\p{Mn}+")
+
+    /**
+     * The lexicon rule: [w1] and [w2] have a lemma in common and begin alike, i.e. their
+     * first [LEXICON_INITIALS] letters are equal, unless the lemma is one of
+     * [LEXICON_INITIALS_EXEMPT]. Only this rule checks the beginning: the stem and the
+     * common prefix rules stay as they are.
+     */
+    private fun lexiconMatch(w1: String, w2: String, lexicon: MorphLexicon?): Boolean {
+        val shared = lexicon?.sharedLemmas(w1, w2) ?: return false
+        if (shared.isEmpty()) return false
+        return beginAlike(w1, w2) || shared.any { it in LEXICON_INITIALS_EXEMPT }
+    }
+
+    /**
+     * True when the two words have the same first [LEXICON_INITIALS] letters, accents
+     * aside (`può` / `potere`), either as written or with the mobile diphthongs reduced
+     * (`muore` / `morire`, `siede` / `sedere`). The written comparison comes first, so a
+     * diphthong after a prefix does not get in the way (`riesco` / `riuscire`).
+     */
+    private fun beginAlike(w1: String, w2: String): Boolean {
+        val p1 = withoutAccents(w1)
+        val p2 = withoutAccents(w2)
+        if (p1.take(LEXICON_INITIALS) == p2.take(LEXICON_INITIALS)) return true
+        return p1.replace(MOBILE_DIPHTHONG) { it.value.substring(1) }.take(LEXICON_INITIALS) ==
+            p2.replace(MOBILE_DIPHTHONG) { it.value.substring(1) }.take(LEXICON_INITIALS)
+    }
+
+    private fun withoutAccents(word: String): String =
+        Normalizer.normalize(word, Normalizer.Form.NFD).replace(COMBINING_MARK, "")
 
 // --- Previous stem: drop the final vowel ---
 // fun stem(word: String): String {
