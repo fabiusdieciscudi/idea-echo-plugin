@@ -13,7 +13,7 @@ class MorphLexiconTest {
     @Test
     fun `reads form and lemma, ignoring the features column`() {
         val lexicon = SampleLexicon.lexicon
-        assertEquals(14, lexicon.size)
+        assertEquals(29, lexicon.size)
         assertTrue("andrà" in lexicon)
         assertTrue(lexicon.shareLemma("andrà", "andare"))
     }
@@ -23,6 +23,14 @@ class MorphLexiconTest {
         val lexicon = SampleLexicon.lexicon
         assertTrue("both are forms of essere", lexicon.shareLemma("era", "erano"))
         assertTrue("unito is also a participle of unire", lexicon.shareLemma("unito", "univa"))
+    }
+
+    @Test
+    fun `the shared lemmas are listed`() {
+        val lexicon = SampleLexicon.lexicon
+        assertEquals(listOf("essere"), lexicon.sharedLemmas("stato", "sono"))
+        assertEquals(listOf("unire"), lexicon.sharedLemmas("unito", "univa"))
+        assertEquals(emptyList<String>(), lexicon.sharedLemmas("andare", "camminare"))
     }
 
     @Test

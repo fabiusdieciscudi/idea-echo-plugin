@@ -89,6 +89,37 @@ class WordMatchingTest {
     }
 
     @Test
+    fun `forms of one lemma that begin differently are not grouped by the lexicon`() {
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertFalse(matches("abbiamo", "avendo", p))
+        assertFalse(matches("essere", "sono", p))
+        assertFalse("stato is a form of essere, sono too", matches("stato", "sono", p))
+        assertTrue("same beginning", matches("erano", "era", p))
+    }
+
+    @Test
+    fun `accents and mobile diphthongs do not change the beginning`() {
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertTrue(matches("muore", "morire", p))
+        assertTrue(matches("pu\u00f2", "potere", p))
+        assertTrue("diphthong after a prefix", matches("riesco", "riuscire", p))
+    }
+
+    @Test
+    fun `dovere and sapere are grouped even though they begin differently`() {
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertTrue(matches("devo", "dovere", p))
+        assertTrue(matches("seppe", "sapere", p))
+    }
+
+    @Test
+    fun `the beginning is checked by the lexicon rule only`() {
+        // With a one-letter common prefix the pair matches again: that rule is untouched.
+        val p = params(minCommonPrefix = 1, lexicon = SampleLexicon.lexicon, useStemmer = false)
+        assertTrue(matches("abbiamo", "avendo", p))
+    }
+
+    @Test
     fun `commands only match themselves`() {
         val p = params(minCommonPrefix = 4)
         assertTrue(matches("\\Jacques", "\\Jacques", p))

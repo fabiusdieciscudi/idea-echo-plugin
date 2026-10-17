@@ -43,6 +43,13 @@ class MorphLexicon private constructor(
         return l1.any { it in l2 }
     }
 
+    /** The lemmas that both forms have, in the file order of [form1]; empty when none. */
+    fun sharedLemmas(form1: String, form2: String): List<String> {
+        val l1 = lemmasByForm[key(form1)] ?: return emptyList()
+        val l2 = lemmasByForm[key(form2)] ?: return emptyList()
+        return l1.filter { it in l2 }.map { lemmaNames[it] }
+    }
+
     companion object {
         /** Lookup key: lower-cased, with accents composed (see [composed]). */
         private fun key(form: String): String = form.lowercase().composed()

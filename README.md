@@ -85,6 +85,11 @@ holds:
 2. **Same lemma.** The [Morph-it! lexicon](#the-morph-it-lexicon), if configured, lists a
    dictionary form they have in common. This catches irregular verbs and forms the
    stemmer cannot relate: `strinse` / `stringeva`, `offerto` / `offriva`, `poco` / `pochi`.
+   The two forms must also begin with the same two letters, since forms that do not are
+   not heard as a repetition: `abbiamo` / `avendo`, `sono` / `stato`, `vado` / `andare`
+   are not grouped. Accents and mobile diphthongs do not count (`può` / `potere`,
+   `muore` / `morire` are grouped), and *dovere* and *sapere* are exceptions
+   (`devo` / `dovere`, `seppe` / `sapere`). This check applies to this rule only.
 3. **Common beginning.** They share at least the configured number of leading letters
    (4 by default). This catches derived words: `bella` / `bellezza`, `fede` / `fedele`,
    `gentile` / `gentilissimo`.
@@ -479,8 +484,9 @@ localIdePath=/Applications/IntelliJ IDEA.app
   homographs that share a stem. This is a deliberate trade-off.
 - The common-beginning rule is cruder still: with 4 letters, `stato` and `statua` are
   grouped. Raise the number if this gets in the way.
-- With the lexicon, very common verbs become a single group: `sono`, `era`, `sarà` are
-  all forms of *essere*. Add the forms you do not want to see to **Ignored words**.
+- With the lexicon, very common verbs become a single group: `era`, `erano`, `essere`
+  are all forms of *essere* (forms beginning differently, such as `sono` or `sarà`, are
+  kept apart). Add the forms you do not want to see to **Ignored words**.
 - Groups are chains, so a long chain can join variants that look unrelated.
 - Multi-argument commands keep only one argument; the others are dropped.
 - The analyzer re-scans the whole file on every run. This is fine for normal
