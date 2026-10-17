@@ -1,6 +1,8 @@
 andare	andare	VER:inf
 andrà	andare	VER:ind+fut+3+s
 bella	bello	ADJ:pos+f+s
+constatare	constatare	VER:inf+pres
+constatò	constatare	VER:ind+past+3+s
 era	era	NOUN-F:s
 era	essere	AUX:impf+3+s
 erano	essere	AUX:impf+3+p

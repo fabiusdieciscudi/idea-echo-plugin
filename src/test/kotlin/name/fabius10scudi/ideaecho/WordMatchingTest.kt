@@ -69,6 +69,26 @@ class WordMatchingTest {
     }
 
     @Test
+    fun `with only the lexicon, an infinitive and its past tense are one group`() {
+        val p = params(lexicon = SampleLexicon.lexicon, useStemmer = false)
+        val echoes = RepetitionAnalyzer.analyze("Volle constatare. Poi constat\u00f2, e constat\u00f2 ancora.", p)
+        assertEquals(listOf("constatare", "constat\u00f2", "constat\u00f2"), echoes.map { it.word })
+        assertEquals(1, echoes.map { it.group }.distinct().size)
+    }
+
+    @Test
+    fun `decomposed accents match precomposed ones, and keep their place in the text`() {
+        // "constato" + U+0300 COMBINING GRAVE ACCENT, as text pasted from some macOS apps.
+        val decomposed = "constato\u0300"
+        val text = "Volle constatare. Poi $decomposed, e constat\u00f2 ancora."
+        val echoes = RepetitionAnalyzer.analyze(text, params(lexicon = SampleLexicon.lexicon, useStemmer = false))
+        assertEquals(listOf("constatare", "constat\u00f2", "constat\u00f2"), echoes.map { it.word })
+        assertEquals(1, echoes.map { it.group }.distinct().size)
+        val start = text.indexOf(decomposed)
+        assertEquals(start to start + decomposed.length, echoes[1].startOffset to echoes[1].endOffset)
+    }
+
+    @Test
     fun `commands only match themselves`() {
         val p = params(minCommonPrefix = 4)
         assertTrue(matches("\\Jacques", "\\Jacques", p))

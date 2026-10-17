@@ -30,20 +30,23 @@ class MorphLexicon private constructor(
     val size: Int get() = lemmasByForm.size
 
     /** True when [form] is in the lexicon. */
-    operator fun contains(form: String): Boolean = form.lowercase() in lemmasByForm
+    operator fun contains(form: String): Boolean = key(form) in lemmasByForm
 
     /** The lemmas of [form], in file order; empty when the form is unknown. */
     fun lemmasOf(form: String): List<String> =
-        lemmasByForm[form.lowercase()]?.map { lemmaNames[it] }.orEmpty()
+        lemmasByForm[key(form)]?.map { lemmaNames[it] }.orEmpty()
 
     /** True when both forms are known and have at least one lemma in common. */
     fun shareLemma(form1: String, form2: String): Boolean {
-        val l1 = lemmasByForm[form1.lowercase()] ?: return false
-        val l2 = lemmasByForm[form2.lowercase()] ?: return false
+        val l1 = lemmasByForm[key(form1)] ?: return false
+        val l2 = lemmasByForm[key(form2)] ?: return false
         return l1.any { it in l2 }
     }
 
     companion object {
+        /** Lookup key: lower-cased, with accents composed (see [composed]). */
+        private fun key(form: String): String = form.lowercase().composed()
+
         private val LATIN_9: Charset = Charset.forName("ISO-8859-15")
 
         /** Reads a lexicon file. Throws [IOException] when it cannot be read. */
@@ -66,7 +69,7 @@ class MorphLexicon private constructor(
                     .toString()
             } catch (_: CharacterCodingException) {
                 String(bytes, LATIN_9)
-            }
+            }.composed() // a copy converted on macOS may have decomposed accents
 
             val lemmaIds = HashMap<String, Int>()
             val lemmasByForm = HashMap<String, IntArray>()

@@ -13,7 +13,7 @@ class MorphLexiconTest {
     @Test
     fun `reads form and lemma, ignoring the features column`() {
         val lexicon = SampleLexicon.lexicon
-        assertEquals(12, lexicon.size)
+        assertEquals(14, lexicon.size)
         assertTrue("andrà" in lexicon)
         assertTrue(lexicon.shareLemma("andrà", "andare"))
     }
@@ -41,6 +41,15 @@ class MorphLexiconTest {
         val latin9 = lexiconOf(text, java.nio.charset.Charset.forName("ISO-8859-15"))
         assertTrue(latin9.shareLemma("andrà", "andare"))
         assertTrue(lexiconOf(text).shareLemma("andrà", "andare"))
+    }
+
+    @Test
+    fun `decomposed accents are composed, in the file and in lookups`() {
+        val decomposed = "constato\u0300\tconstatare\tVER:ind+past+3+s\nconstatare\tconstatare\tVER:inf\n"
+        val lexicon = lexiconOf(decomposed)
+        assertTrue("constat\u00f2" in lexicon)
+        assertTrue(lexicon.shareLemma("constat\u00f2", "constatare"))
+        assertTrue(SampleLexicon.lexicon.shareLemma("constato\u0300", "constatare"))
     }
 
     @Test
